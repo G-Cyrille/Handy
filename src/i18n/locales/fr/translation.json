@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "Raccourci clavier"
       },
+      "context": {
+        "title": "Contexte",
+        "screenshot": {
+          "label": "Contexte capture d'écran",
+          "description": "Envoie le contexte visuel avec chaque transcription post-traitée. Nécessite l'autorisation Enregistrement de l'écran.",
+          "permissionMissing": "Autorisez Handy dans Réglages Système › Confidentialité et sécurité › Enregistrement de l'écran, puis relancez Handy.",
+          "scope": {
+            "label": "Écrans à capturer",
+            "description": "Capture l'écran sous votre curseur ou compose tous les écrans actifs dans une seule image.",
+            "options": {
+              "currentMonitor": "Écran actuel",
+              "allMonitors": "Tous les écrans"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (Compatible OpenAI)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "Re-transcrire",
       "retranscribeError": "Impossible de re-transcrire. Veuillez réessayer.",
       "transcribing": "Transcription en cours...",
-      "transcriptionFailed": "La transcription a échoué. Vous pouvez re-transcrire en utilisant l'icône de réessai."
+      "transcriptionFailed": "La transcription a échoué. Vous pouvez re-transcrire en utilisant l'icône de réessai.",
+      "screenshot": {
+        "view": "Voir la capture d'écran",
+        "title": "Capture d'écran",
+        "loading": "Chargement de la capture d'écran...",
+        "unavailable": "Capture d'écran indisponible.",
+        "close": "Fermer",
+        "alt": "Capture d'écran envoyée avec cette transcription"
+      }
     },
     "debug": {
       "title": "Débogage",

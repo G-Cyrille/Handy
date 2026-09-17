@@ -20,7 +20,9 @@ import { ApiKeyField } from "../PostProcessingSettingsApi/ApiKeyField";
 import { ModelSelect } from "../PostProcessingSettingsApi/ModelSelect";
 import { usePostProcessProviderState } from "../PostProcessingSettingsApi/usePostProcessProviderState";
 import { ShortcutInput } from "../ShortcutInput";
+import { ScreenshotContextToggle } from "../ScreenshotContextToggle";
 import { useSettings } from "../../../hooks/useSettings";
+import { useOsType } from "../../../hooks/useOsType";
 
 const PostProcessingSettingsApiComponent: React.FC = () => {
   const { t } = useTranslation();
@@ -426,6 +428,7 @@ PostProcessingSettingsPrompts.displayName = "PostProcessingSettingsPrompts";
 
 export const PostProcessingSettings: React.FC = () => {
   const { t } = useTranslation();
+  const osType = useOsType();
 
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
@@ -436,6 +439,13 @@ export const PostProcessingSettings: React.FC = () => {
           grouped={true}
         />
       </SettingsGroup>
+
+      {/* Screenshot capture is implemented on macOS only for now. */}
+      {osType === "macos" && (
+        <SettingsGroup title={t("settings.postProcessing.context.title")}>
+          <ScreenshotContextToggle grouped={true} />
+        </SettingsGroup>
+      )}
 
       <SettingsGroup title={t("settings.postProcessing.api.title")}>
         <PostProcessingSettingsApi />

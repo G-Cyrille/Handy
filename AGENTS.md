@@ -69,6 +69,7 @@ Handy is a cross-platform desktop speech-to-text application built with Tauri 2.
 - `shortcut.rs` - Global keyboard shortcut handling
 - `settings.rs` - Application settings management
 - `overlay.rs` - Recording overlay window (platform-specific)
+- `screenshot.rs` - Optional screenshot context for AI post-processing (macOS capture, portable resize/encode)
 - `signal_handle.rs` - `send_transcription_input()` reusable function
 - `utils.rs` - Platform detection helpers
 

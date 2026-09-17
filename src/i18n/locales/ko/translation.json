@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "단축키"
       },
+      "context": {
+        "title": "컨텍스트",
+        "screenshot": {
+          "label": "스크린샷 컨텍스트",
+          "description": "후처리된 전사마다 화면 컨텍스트를 함께 보냅니다. 화면 기록 권한이 필요합니다.",
+          "permissionMissing": "시스템 설정 › 개인정보 보호 및 보안 › 화면 기록에서 Handy를 허용한 뒤 Handy를 다시 시작하세요.",
+          "scope": {
+            "label": "캡처할 화면",
+            "description": "커서 아래 모니터를 캡처하거나 활성화된 모든 모니터를 하나의 이미지로 합칩니다.",
+            "options": {
+              "currentMonitor": "현재 모니터",
+              "allMonitors": "모든 모니터"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI 호환)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "다시 전사",
       "retranscribeError": "다시 전사에 실패했습니다. 다시 시도해주세요.",
       "transcribing": "전사 중...",
-      "transcriptionFailed": "전사에 실패했습니다. 재시도 아이콘을 사용하여 다시 전사할 수 있습니다."
+      "transcriptionFailed": "전사에 실패했습니다. 재시도 아이콘을 사용하여 다시 전사할 수 있습니다.",
+      "screenshot": {
+        "view": "스크린샷 보기",
+        "title": "스크린샷",
+        "loading": "스크린샷 불러오는 중...",
+        "unavailable": "스크린샷을 사용할 수 없습니다.",
+        "close": "닫기",
+        "alt": "이 전사와 함께 전송된 스크린샷"
+      }
     },
     "debug": {
       "title": "디버그",

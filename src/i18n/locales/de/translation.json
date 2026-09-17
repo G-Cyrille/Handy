@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "Tastenkürzel"
       },
+      "context": {
+        "title": "Kontext",
+        "screenshot": {
+          "label": "Screenshot-Kontext",
+          "description": "Sendet mit jeder nachbearbeiteten Transkription visuellen Kontext. Erfordert die Berechtigung „Bildschirmaufnahme“.",
+          "permissionMissing": "Erlaube Handy unter Systemeinstellungen › Datenschutz & Sicherheit › Bildschirmaufnahme und starte Handy anschließend neu.",
+          "scope": {
+            "label": "Aufzunehmende Bildschirme",
+            "description": "Nimmt den Bildschirm unter dem Cursor auf oder fügt alle aktiven Bildschirme zu einem Bild zusammen.",
+            "options": {
+              "currentMonitor": "Aktueller Bildschirm",
+              "allMonitors": "Alle Bildschirme"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI-kompatibel)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "Erneut transkribieren",
       "retranscribeError": "Erneute Transkription fehlgeschlagen. Bitte versuche es erneut.",
       "transcribing": "Transkribiere...",
-      "transcriptionFailed": "Transkription fehlgeschlagen. Du kannst über das Wiederholen-Symbol erneut transkribieren."
+      "transcriptionFailed": "Transkription fehlgeschlagen. Du kannst über das Wiederholen-Symbol erneut transkribieren.",
+      "screenshot": {
+        "view": "Screenshot anzeigen",
+        "title": "Screenshot",
+        "loading": "Screenshot wird geladen...",
+        "unavailable": "Screenshot nicht verfügbar.",
+        "close": "Schließen",
+        "alt": "Mit dieser Transkription gesendeter Screenshot"
+      }
     },
     "debug": {
       "title": "Debug",

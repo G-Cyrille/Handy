@@ -1,7 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { Check, Copy, FolderOpen, RotateCcw, Star, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  FolderOpen,
+  Image as ImageIcon,
+  RotateCcw,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -14,6 +22,7 @@ import { useOsType } from "@/hooks/useOsType";
 import { formatDateTime } from "@/utils/dateFormat";
 import { AudioPlayer, AudioPlayerGroup } from "../../ui/AudioPlayer";
 import { Button } from "../../ui/Button";
+import { Dialog } from "../../ui/Dialog";
 
 const IconButton: React.FC<{
   onClick: () => void;
@@ -37,6 +46,73 @@ const IconButton: React.FC<{
 );
 
 const PAGE_SIZE = 30;
+
+type ScreenshotState =
+  | { status: "loading" }
+  | { status: "ready"; src: string }
+  | { status: "error" };
+
+interface ScreenshotLightboxProps {
+  entryId: number;
+  onClose: () => void;
+}
+
+/** Loads an entry's screenshot on open and shows it in a dismissible dialog. */
+const ScreenshotLightbox: React.FC<ScreenshotLightboxProps> = ({
+  entryId,
+  onClose,
+}) => {
+  const { t } = useTranslation();
+  const [state, setState] = useState<ScreenshotState>({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    commands
+      .getHistoryScreenshot(entryId)
+      .then((result) => {
+        if (cancelled) return;
+        setState(
+          result.status === "ok"
+            ? { status: "ready", src: result.data }
+            : { status: "error" },
+        );
+      })
+      .catch((error) => {
+        console.error("Failed to load screenshot:", error);
+        if (!cancelled) setState({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [entryId]);
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title={t("settings.history.screenshot.title")}
+      closeLabel={t("settings.history.screenshot.close")}
+      className="max-w-4xl"
+      contentFades={false}
+    >
+      {state.status === "ready" ? (
+        <img
+          src={state.src}
+          alt={t("settings.history.screenshot.alt")}
+          className="mx-auto max-h-[70vh] w-auto rounded-md"
+        />
+      ) : (
+        <p className="py-8 text-center text-sm text-text/60">
+          {state.status === "loading"
+            ? t("settings.history.screenshot.loading")
+            : t("settings.history.screenshot.unavailable")}
+        </p>
+      )}
+    </Dialog>
+  );
+};
 
 interface OpenRecordingsButtonProps {
   onClick: () => void;
@@ -314,8 +390,10 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   const { t, i18n } = useTranslation();
   const [showCopied, setShowCopied] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [showScreenshot, setShowScreenshot] = useState(false);
 
   const hasTranscription = entry.transcription_text.trim().length > 0;
+  const hasScreenshot = entry.screenshot_file_name !== null;
 
   const handleLoadAudio = useCallback(
     () => getAudioUrl(entry.file_name),
@@ -371,6 +449,14 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               <Copy width={16} height={16} />
             )}
           </IconButton>
+          {hasScreenshot && (
+            <IconButton
+              onClick={() => setShowScreenshot(true)}
+              title={t("settings.history.screenshot.view")}
+            >
+              <ImageIcon width={16} height={16} />
+            </IconButton>
+          )}
           <IconButton
             onClick={onToggleSaved}
             disabled={retrying}
@@ -442,6 +528,13 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
       </p>
 
       <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+
+      {showScreenshot && (
+        <ScreenshotLightbox
+          entryId={entry.id}
+          onClose={() => setShowScreenshot(false)}
+        />
+      )}
     </div>
   );
 };

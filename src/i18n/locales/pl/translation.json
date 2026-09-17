@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "Skrót klawiszowy"
       },
+      "context": {
+        "title": "Kontekst",
+        "screenshot": {
+          "label": "Kontekst zrzutu ekranu",
+          "description": "Wysyła kontekst wizualny z każdą przetworzoną transkrypcją. Wymaga uprawnienia Nagrywanie ekranu.",
+          "permissionMissing": "Zezwól Handy w Ustawieniach systemowych › Prywatność i ochrona › Nagrywanie ekranu, a następnie uruchom Handy ponownie.",
+          "scope": {
+            "label": "Ekrany do przechwycenia",
+            "description": "Przechwytuje monitor pod kursorem lub łączy wszystkie aktywne monitory w jeden obraz.",
+            "options": {
+              "currentMonitor": "Bieżący monitor",
+              "allMonitors": "Wszystkie monitory"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (zgodne z OpenAI)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "Transkrybuj ponownie",
       "retranscribeError": "Nie udało się ponownie transkrybować. Spróbuj ponownie.",
       "transcribing": "Transkrybuję...",
-      "transcriptionFailed": "Transkrypcja nie powiodła się. Możesz transkrybować ponownie za pomocą ikony ponowienia."
+      "transcriptionFailed": "Transkrypcja nie powiodła się. Możesz transkrybować ponownie za pomocą ikony ponowienia.",
+      "screenshot": {
+        "view": "Pokaż zrzut ekranu",
+        "title": "Zrzut ekranu",
+        "loading": "Wczytywanie zrzutu ekranu...",
+        "unavailable": "Zrzut ekranu niedostępny.",
+        "close": "Zamknij",
+        "alt": "Zrzut ekranu wysłany z tą transkrypcją"
+      }
     },
     "debug": {
       "title": "Debugowanie",

@@ -1,6 +1,8 @@
+use crate::screenshot::CapturedScreenshot;
 use crate::settings::PostProcessProvider;
 use log::{debug, error, info};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
@@ -10,7 +12,46 @@ use std::sync::{Mutex, OnceLock};
 #[derive(Debug, Serialize)]
 struct ChatMessage {
     role: String,
-    content: String,
+    content: MessageContent,
+}
+
+/// OpenAI-compatible message content: a plain string for text-only requests
+/// (what every endpoint understands) or content parts when a screenshot is
+/// attached.
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+enum MessageContent {
+    Text(String),
+    Parts(Vec<ContentPart>),
+}
+
+impl MessageContent {
+    fn with_images(text: String, image_data_urls: Vec<String>) -> Self {
+        let mut parts = Vec::with_capacity(image_data_urls.len() + 1);
+        parts.push(ContentPart::Text { text });
+        parts.extend(
+            image_data_urls
+                .into_iter()
+                .map(|url| ContentPart::ImageUrl {
+                    image_url: ImageUrl { url },
+                }),
+        );
+        Self::Parts(parts)
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+enum ContentPart {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image_url")]
+    ImageUrl { image_url: ImageUrl },
+}
+
+#[derive(Debug, Serialize)]
+struct ImageUrl {
+    url: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -84,11 +125,21 @@ fn reasoning_disable_params(provider: &PostProcessProvider) -> ReasoningParams {
     }
 }
 
-/// Endpoints (base_url|model) that rejected the reasoning-disable fields with a
-/// 4xx. Remembered for the lifetime of the process so every dictation after the
-/// first skips the doomed attempt and goes straight to a plain request.
-fn reasoning_rejections() -> &'static Mutex<HashSet<String>> {
-    static REJECTED: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+/// Optional request features an endpoint may reject with a 4xx.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum RequestFeature {
+    /// The reasoning-disable fields picked by `reasoning_disable_params`.
+    ReasoningDisable,
+    /// The screenshot `image_url` content part.
+    Image,
+}
+
+/// Endpoints (base_url|model) that rejected a request feature with a 4xx.
+/// Remembered for the lifetime of the process so every dictation after the
+/// first skips the doomed attempt and goes straight to a request the endpoint
+/// accepts.
+fn feature_rejections() -> &'static Mutex<HashSet<(RequestFeature, String)>> {
+    static REJECTED: OnceLock<Mutex<HashSet<(RequestFeature, String)>>> = OnceLock::new();
     REJECTED.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
@@ -96,17 +147,23 @@ fn endpoint_key(provider: &PostProcessProvider, model: &str) -> String {
     format!("{}|{}", provider.base_url.trim_end_matches('/'), model)
 }
 
-fn is_known_rejected(key: &str) -> bool {
-    reasoning_rejections()
+fn is_known_rejected(feature: RequestFeature, key: &str) -> bool {
+    feature_rejections()
         .lock()
-        .map(|set| set.contains(key))
+        .map(|set| set.contains(&(feature, key.to_string())))
         .unwrap_or(false)
 }
 
-fn remember_rejection(key: String) {
-    if let Ok(mut set) = reasoning_rejections().lock() {
-        set.insert(key);
+fn remember_rejection(feature: RequestFeature, key: &str) {
+    if let Ok(mut set) = feature_rejections().lock() {
+        set.insert((feature, key.to_string()));
     }
+}
+
+/// Status codes an endpoint uses to refuse a request field or content type it
+/// does not understand (as opposed to auth, rate-limit or server errors).
+fn is_payload_rejection(status: StatusCode) -> bool {
+    matches!(status.as_u16(), 400 | 415 | 422)
 }
 
 #[derive(Debug, Serialize)]
@@ -118,6 +175,31 @@ struct ChatCompletionRequest {
     response_format: Option<ResponseFormat>,
     #[serde(flatten)]
     reasoning: ReasoningParams,
+}
+
+impl ChatCompletionRequest {
+    fn has_image(&self) -> bool {
+        self.messages
+            .iter()
+            .any(|message| matches!(message.content, MessageContent::Parts(_)))
+    }
+
+    /// Collapse multimodal messages back to their text part.
+    fn strip_image(&mut self) {
+        for message in &mut self.messages {
+            if let MessageContent::Parts(parts) = &mut message.content {
+                let text = parts
+                    .drain(..)
+                    .filter_map(|part| match part {
+                        ContentPart::Text { text } => Some(text),
+                        ContentPart::ImageUrl { .. } => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                message.content = MessageContent::Text(text);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -294,6 +376,34 @@ fn report_reqwest_error(context: &str, error: &reqwest::Error) -> String {
     details
 }
 
+async fn post_json(
+    client: &reqwest::Client,
+    url: &str,
+    body: &ChatCompletionRequest,
+    context: &str,
+) -> Result<reqwest::Response, String> {
+    let response = client
+        .post(url)
+        .json(body)
+        .send()
+        .await
+        .map_err(|e| report_reqwest_error(context, &e))?;
+    debug!(
+        "Chat completion response received with status {} over {:?} from {}",
+        response.status(),
+        response.version(),
+        sanitized_url(response.url())
+    );
+    Ok(response)
+}
+
+async fn read_error_text(response: reqwest::Response, context: &str) -> String {
+    response
+        .text()
+        .await
+        .unwrap_or_else(|e| report_reqwest_error(context, &e))
+}
+
 /// Send a chat completion request to an OpenAI-compatible API
 /// Returns Ok(Some(content)) on success, Ok(None) if response has no content,
 /// or Err on actual errors (HTTP, parsing, etc.)
@@ -303,6 +413,7 @@ pub async fn send_chat_completion(
     model: &str,
     prompt: String,
     disable_reasoning: bool,
+    screenshot: Option<&CapturedScreenshot>,
 ) -> Result<Option<String>, String> {
     send_chat_completion_with_schema(
         provider,
@@ -312,6 +423,7 @@ pub async fn send_chat_completion(
         None,
         None,
         disable_reasoning,
+        screenshot,
     )
     .await
 }
@@ -320,12 +432,18 @@ pub async fn send_chat_completion(
 /// When json_schema is provided, uses structured outputs mode.
 /// system_prompt is used as the system message when provided.
 ///
-/// When disable_reasoning is set, the request carries the reasoning-disable
-/// fields the endpoint is expected to understand. Not every OpenAI-compatible
-/// endpoint accepts them (DeepSeek, Gemini's compat layer, and some OpenRouter
-/// upstreams reject with 400), so a 400/422 answer to such a request triggers
-/// one retry without the fields, and the rejection is remembered per
+/// When a screenshot is provided, the user message is sent as content parts
+/// (text + one `image_url` per monitor). When disable_reasoning is set, the request
+/// carries the reasoning-disable fields the endpoint is expected to understand.
+///
+/// Not every OpenAI-compatible endpoint accepts either (text-only models
+/// reject image parts; DeepSeek, Gemini's compat layer, and some OpenRouter
+/// upstreams reject the reasoning fields with 400), so a 400/415/422 answer
+/// triggers at most two retries: first without the image, then without the
+/// reasoning fields. Each retry removes exactly one thing, so a success pins
+/// the rejection on what was just removed and it is remembered per
 /// (base_url, model) so later requests skip the failing attempt entirely.
+#[allow(clippy::too_many_arguments)]
 pub async fn send_chat_completion_with_schema(
     provider: &PostProcessProvider,
     api_key: String,
@@ -334,6 +452,7 @@ pub async fn send_chat_completion_with_schema(
     system_prompt: Option<String>,
     json_schema: Option<Value>,
     disable_reasoning: bool,
+    screenshot: Option<&CapturedScreenshot>,
 ) -> Result<Option<String>, String> {
     let base_url = provider.base_url.trim_end_matches('/');
     let url = format!("{}/chat/completions", base_url);
@@ -344,6 +463,7 @@ pub async fn send_chat_completion_with_schema(
     );
 
     let client = create_client(provider, &api_key)?;
+    let key = endpoint_key(provider, model);
 
     // Build messages vector
     let mut messages = Vec::new();
@@ -352,14 +472,27 @@ pub async fn send_chat_completion_with_schema(
     if let Some(system) = system_prompt {
         messages.push(ChatMessage {
             role: "system".to_string(),
-            content: system,
+            content: MessageContent::Text(system),
         });
     }
 
-    // Add user message
+    // Add user message, with the screenshot attached unless this endpoint is
+    // already known to refuse images.
+    let screenshot = screenshot.filter(|_| {
+        let accepted = !is_known_rejected(RequestFeature::Image, &key);
+        if !accepted {
+            debug!("Skipping screenshot: endpoint previously rejected image content");
+        }
+        accepted
+    });
     messages.push(ChatMessage {
         role: "user".to_string(),
-        content: user_content,
+        content: match screenshot {
+            Some(screenshot) => {
+                MessageContent::with_images(user_content, screenshot.llm_data_urls())
+            }
+            None => MessageContent::Text(user_content),
+        },
     });
 
     // Build response_format if schema is provided
@@ -372,12 +505,12 @@ pub async fn send_chat_completion_with_schema(
         },
     });
 
-    let key = endpoint_key(provider, model);
-    let reasoning = if disable_reasoning && !is_known_rejected(&key) {
-        reasoning_disable_params(provider)
-    } else {
-        ReasoningParams::default()
-    };
+    let reasoning =
+        if disable_reasoning && !is_known_rejected(RequestFeature::ReasoningDisable, &key) {
+            reasoning_disable_params(provider)
+        } else {
+            ReasoningParams::default()
+        };
 
     let mut request_body = ChatCompletionRequest {
         model: model.to_string(),
@@ -387,63 +520,62 @@ pub async fn send_chat_completion_with_schema(
         reasoning,
     };
 
-    let mut response = client
-        .post(&url)
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| report_reqwest_error("HTTP request failed", &e))?;
+    let mut response = post_json(&client, &url, &request_body, "HTTP request failed").await?;
     let mut status = response.status();
-    debug!(
-        "Chat completion response received with status {} over {:?} from {}",
-        status,
-        response.version(),
-        sanitized_url(response.url())
-    );
 
-    // A 400/422 on a request carrying reasoning-disable fields is almost always
+    // A text-only model refuses the image content part with a 4xx. Retry once
+    // without it so post-processing still lands as text.
+    if is_payload_rejection(status) && request_body.has_image() {
+        let error_text = read_error_text(response, "Failed to read image rejection response").await;
+        info!(
+            "Endpoint rejected request with screenshot (status {}): {}. Retrying without the image",
+            status, error_text
+        );
+
+        request_body.strip_image();
+        response = post_json(
+            &client,
+            &url,
+            &request_body,
+            "HTTP retry without image failed",
+        )
+        .await?;
+        status = response.status();
+
+        if status.is_success() {
+            info!(
+                "Retry without the screenshot succeeded; '{}' (model '{}') will get text-only requests from now on",
+                sanitized_url_for_log(base_url), model
+            );
+            remember_rejection(RequestFeature::Image, &key);
+        }
+    }
+
+    // A 4xx on a request carrying reasoning-disable fields is almost always
     // the endpoint rejecting those fields — retry once without them.
-    if !status.is_success()
-        && matches!(status.as_u16(), 400 | 422)
-        && !request_body.reasoning.is_empty()
-    {
-        let error_text = response.text().await.unwrap_or_else(|e| {
-            report_reqwest_error("Failed to read reasoning rejection response", &e)
-        });
+    if is_payload_rejection(status) && !request_body.reasoning.is_empty() {
+        let error_text =
+            read_error_text(response, "Failed to read reasoning rejection response").await;
         info!(
             "Endpoint rejected request with reasoning disabled (status {}): {}. Retrying without reasoning fields",
             status, error_text
         );
 
         request_body.reasoning = ReasoningParams::default();
-        response = client
-            .post(&url)
-            .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| report_reqwest_error("HTTP retry failed", &e))?;
+        response = post_json(&client, &url, &request_body, "HTTP retry failed").await?;
         status = response.status();
-        debug!(
-            "Chat completion retry response received with status {} over {:?} from {}",
-            status,
-            response.version(),
-            sanitized_url(response.url())
-        );
 
         if status.is_success() {
             info!(
                 "Retry without reasoning fields succeeded; '{}' (model '{}') will skip them from now on",
                 sanitized_url_for_log(base_url), model
             );
-            remember_rejection(key);
+            remember_rejection(RequestFeature::ReasoningDisable, &key);
         }
     }
 
     if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|e| report_reqwest_error("Failed to read API error response", &e));
+        let error_text = read_error_text(response, "Failed to read API error response").await;
         return Err(format!(
             "API request failed with status {}: {}",
             status, error_text
@@ -531,6 +663,7 @@ pub async fn fetch_models(
 mod tests {
     use super::*;
     use std::fmt;
+    use std::sync::Arc;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[derive(Debug)]
@@ -565,17 +698,84 @@ mod tests {
     }
 
     fn request_json(reasoning: ReasoningParams) -> Value {
-        let request = ChatCompletionRequest {
+        serde_json::to_value(request(MessageContent::Text("hi".to_string()), reasoning)).unwrap()
+    }
+
+    fn request(content: MessageContent, reasoning: ReasoningParams) -> ChatCompletionRequest {
+        ChatCompletionRequest {
             model: "test-model".to_string(),
             messages: vec![ChatMessage {
                 role: "user".to_string(),
-                content: "hi".to_string(),
+                content,
             }],
             stream: false,
             response_format: None,
             reasoning,
+        }
+    }
+
+    fn screenshot() -> CapturedScreenshot {
+        let image = image::RgbaImage::from_pixel(4, 4, image::Rgba([10, 20, 30, 255]));
+        crate::screenshot::encode_screenshot(image).unwrap()
+    }
+
+    const COMPLETION_OK: &str = r#"{"choices":[{"message":{"content":"cleaned"}}]}"#;
+
+    /// Serve `responses` in order, one connection each, recording every
+    /// request body so tests can assert what each retry actually sent.
+    async fn serve_responses(
+        responses: Vec<(&'static str, &'static str)>,
+    ) -> (String, Arc<Mutex<Vec<String>>>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let bodies = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&bodies);
+
+        tokio::spawn(async move {
+            for (status, body) in responses {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let request_body = read_request_body(&mut stream).await;
+                recorded.lock().unwrap().push(request_body);
+                let response = format!(
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+
+        (format!("http://{address}"), bodies)
+    }
+
+    async fn read_request_body(stream: &mut tokio::net::TcpStream) -> String {
+        let mut buffer = Vec::new();
+        let mut chunk = [0_u8; 4096];
+        let header_end = loop {
+            let read = stream.read(&mut chunk).await.unwrap();
+            if read == 0 {
+                return String::new();
+            }
+            buffer.extend_from_slice(&chunk[..read]);
+            if let Some(position) = buffer.windows(4).position(|window| window == b"\r\n\r\n") {
+                break position + 4;
+            }
         };
-        serde_json::to_value(&request).unwrap()
+
+        let headers = String::from_utf8_lossy(&buffer[..header_end]).to_ascii_lowercase();
+        let content_length = headers
+            .lines()
+            .find_map(|line| line.strip_prefix("content-length:"))
+            .and_then(|value| value.trim().parse::<usize>().ok())
+            .unwrap_or(0);
+        while buffer.len() < header_end + content_length {
+            let read = stream.read(&mut chunk).await.unwrap();
+            if read == 0 {
+                break;
+            }
+            buffer.extend_from_slice(&chunk[..read]);
+        }
+
+        String::from_utf8_lossy(&buffer[header_end..]).into_owned()
     }
 
     async fn serve_one_response(status: &str, body: &str) -> String {
@@ -721,14 +921,152 @@ mod tests {
     }
 
     #[test]
-    fn rejection_memo_is_keyed_by_base_url_and_model() {
+    fn rejection_memo_is_keyed_by_feature_base_url_and_model() {
         let deepseek = provider("custom", "https://api.deepseek.com/");
         let key = endpoint_key(&deepseek, "deepseek-chat");
         assert_eq!(key, "https://api.deepseek.com|deepseek-chat");
-        assert!(!is_known_rejected(&key));
-        remember_rejection(key.clone());
-        assert!(is_known_rejected(&key));
-        // A different model on the same endpoint is tracked separately
-        assert!(!is_known_rejected(&endpoint_key(&deepseek, "other-model")));
+        assert!(!is_known_rejected(RequestFeature::ReasoningDisable, &key));
+        remember_rejection(RequestFeature::ReasoningDisable, &key);
+        assert!(is_known_rejected(RequestFeature::ReasoningDisable, &key));
+        // Each feature and each model on the same endpoint is tracked separately
+        assert!(!is_known_rejected(RequestFeature::Image, &key));
+        assert!(!is_known_rejected(
+            RequestFeature::ReasoningDisable,
+            &endpoint_key(&deepseek, "other-model")
+        ));
+    }
+
+    #[test]
+    fn text_only_messages_serialize_as_plain_strings() {
+        let json = request_json(ReasoningParams::default());
+        assert_eq!(json["messages"][0]["content"], "hi");
+    }
+
+    #[test]
+    fn screenshot_messages_serialize_as_content_parts() {
+        let content = MessageContent::with_images(
+            "hi".to_string(),
+            vec![screenshot().data_url(), screenshot().data_url()],
+        );
+        let json = serde_json::to_value(request(content, ReasoningParams::default())).unwrap();
+
+        let parts = json["messages"][0]["content"].as_array().unwrap();
+        assert_eq!(parts.len(), 3);
+        assert_eq!(
+            parts[0],
+            serde_json::json!({ "type": "text", "text": "hi" })
+        );
+        assert_eq!(parts[1]["type"], "image_url");
+        let url = parts[1]["image_url"]["url"].as_str().unwrap();
+        assert!(url.starts_with("data:image/jpeg;base64,"));
+        assert_eq!(parts[2]["type"], "image_url");
+    }
+
+    #[test]
+    fn strip_image_restores_plain_text_content() {
+        let content = MessageContent::with_images(
+            "hi".to_string(),
+            vec![screenshot().data_url(), screenshot().data_url()],
+        );
+        let mut request = request(content, ReasoningParams::default());
+        assert!(request.has_image());
+
+        request.strip_image();
+
+        assert!(!request.has_image());
+        let json = serde_json::to_value(&request).unwrap();
+        assert_eq!(json["messages"][0]["content"], "hi");
+    }
+
+    #[test]
+    fn payload_rejection_statuses() {
+        for status in [400, 415, 422] {
+            assert!(is_payload_rejection(StatusCode::from_u16(status).unwrap()));
+        }
+        for status in [401, 403, 404, 429, 500] {
+            assert!(!is_payload_rejection(StatusCode::from_u16(status).unwrap()));
+        }
+    }
+
+    #[tokio::test]
+    async fn image_rejection_retries_once_without_the_image_and_is_remembered() {
+        let (base_url, bodies) = serve_responses(vec![
+            ("400 Bad Request", "no images"),
+            ("200 OK", COMPLETION_OK),
+        ])
+        .await;
+        let custom = provider("custom", &base_url);
+
+        let result = send_chat_completion(
+            &custom,
+            String::new(),
+            "text-model",
+            "hi".to_string(),
+            false,
+            Some(&screenshot()),
+        )
+        .await;
+
+        assert_eq!(result, Ok(Some("cleaned".to_string())));
+        let bodies = bodies.lock().unwrap();
+        assert_eq!(bodies.len(), 2);
+        assert!(bodies[0].contains("image_url"));
+        assert!(!bodies[1].contains("image_url"));
+        assert!(is_known_rejected(
+            RequestFeature::Image,
+            &endpoint_key(&custom, "text-model")
+        ));
+    }
+
+    #[tokio::test]
+    async fn fallback_is_bounded_when_image_and_reasoning_are_both_rejected() {
+        let (base_url, bodies) = serve_responses(vec![
+            ("400 Bad Request", "no images"),
+            ("422 Unprocessable Entity", "no reasoning_effort"),
+            ("200 OK", COMPLETION_OK),
+        ])
+        .await;
+        let custom = provider("custom", &base_url);
+
+        let result = send_chat_completion(
+            &custom,
+            String::new(),
+            "strict-model",
+            "hi".to_string(),
+            true,
+            Some(&screenshot()),
+        )
+        .await;
+
+        assert_eq!(result, Ok(Some("cleaned".to_string())));
+        let bodies = bodies.lock().unwrap();
+        assert_eq!(bodies.len(), 3);
+        assert!(bodies[0].contains("image_url") && bodies[0].contains("reasoning_effort"));
+        assert!(!bodies[1].contains("image_url") && bodies[1].contains("reasoning_effort"));
+        assert!(!bodies[2].contains("image_url") && !bodies[2].contains("reasoning_effort"));
+        let key = endpoint_key(&custom, "strict-model");
+        assert!(is_known_rejected(RequestFeature::ReasoningDisable, &key));
+        // Only the reasoning retry flipped failure to success, so the image
+        // is not blamed yet.
+        assert!(!is_known_rejected(RequestFeature::Image, &key));
+    }
+
+    #[tokio::test]
+    async fn plain_text_rejection_is_not_retried() {
+        let (base_url, bodies) = serve_responses(vec![("400 Bad Request", "bad prompt")]).await;
+        let custom = provider("custom", &base_url);
+
+        let result = send_chat_completion(
+            &custom,
+            String::new(),
+            "plain-model",
+            "hi".to_string(),
+            false,
+            None,
+        )
+        .await;
+
+        assert!(result.unwrap_err().contains("400"));
+        assert_eq!(bodies.lock().unwrap().len(), 1);
     }
 }

@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "Genvejstast"
       },
+      "context": {
+        "title": "Kontekst",
+        "screenshot": {
+          "label": "Skærmbilledkontekst",
+          "description": "Sender visuel kontekst med hver efterbehandlet transskription. Kræver tilladelsen Skærmoptagelse.",
+          "permissionMissing": "Tillad Handy under Systemindstillinger › Anonymitet og sikkerhed › Skærmoptagelse, og genstart derefter Handy.",
+          "scope": {
+            "label": "Skærme, der skal optages",
+            "description": "Optager skærmen under markøren eller samler alle aktive skærme i ét billede.",
+            "options": {
+              "currentMonitor": "Aktuel skærm",
+              "allMonitors": "Alle skærme"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI-kompatibel)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "Transskribér igen",
       "retranscribeError": "Kunne ikke transskribere igen. Prøv igen.",
       "transcribing": "Transskriberer...",
-      "transcriptionFailed": "Transskription mislykkedes. Du kan transskribere igen ved hjælp af genforsøgsikonet."
+      "transcriptionFailed": "Transskription mislykkedes. Du kan transskribere igen ved hjælp af genforsøgsikonet.",
+      "screenshot": {
+        "view": "Vis skærmbillede",
+        "title": "Skærmbillede",
+        "loading": "Indlæser skærmbillede...",
+        "unavailable": "Skærmbillede ikke tilgængeligt.",
+        "close": "Luk",
+        "alt": "Skærmbillede sendt med denne transskription"
+      }
     },
     "debug": {
       "title": "Fejlfinding",

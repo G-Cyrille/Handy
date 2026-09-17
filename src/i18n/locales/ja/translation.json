@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "ショートカット"
       },
+      "context": {
+        "title": "コンテキスト",
+        "screenshot": {
+          "label": "スクリーンショットのコンテキスト",
+          "description": "後処理付きの文字起こしごとに画面のコンテキストを送信します。画面収録の許可が必要です。",
+          "permissionMissing": "システム設定 › プライバシーとセキュリティ › 画面収録で Handy を許可し、Handy を再起動してください。",
+          "scope": {
+            "label": "キャプチャする画面",
+            "description": "カーソル下のモニターをキャプチャするか、すべてのアクティブなモニターを1枚の画像にまとめます。",
+            "options": {
+              "currentMonitor": "現在のモニター",
+              "allMonitors": "すべてのモニター"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI 互換)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "再文字起こし",
       "retranscribeError": "再文字起こしに失敗しました。もう一度お試しください。",
       "transcribing": "文字起こし中…",
-      "transcriptionFailed": "文字起こしに失敗しました。リトライアイコンを使用して再文字起こしできます。"
+      "transcriptionFailed": "文字起こしに失敗しました。リトライアイコンを使用して再文字起こしできます。",
+      "screenshot": {
+        "view": "スクリーンショットを表示",
+        "title": "スクリーンショット",
+        "loading": "スクリーンショットを読み込み中...",
+        "unavailable": "スクリーンショットを利用できません。",
+        "close": "閉じる",
+        "alt": "この文字起こしと一緒に送信されたスクリーンショット"
+      }
     },
     "debug": {
       "title": "デバッグ",

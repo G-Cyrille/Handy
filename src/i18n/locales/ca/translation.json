@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "Drecera de teclat"
       },
+      "context": {
+        "title": "Context",
+        "screenshot": {
+          "label": "Context de captura de pantalla",
+          "description": "Envia context visual amb cada transcripció postprocessada. Requereix el permís d'Enregistrament de pantalla.",
+          "permissionMissing": "Permet Handy a Configuració del Sistema › Privadesa i seguretat › Enregistrament de pantalla i després reinicia Handy.",
+          "scope": {
+            "label": "Pantalles per capturar",
+            "description": "Captura el monitor sota el cursor o combina tots els monitors actius en una sola imatge.",
+            "options": {
+              "currentMonitor": "Monitor actual",
+              "allMonitors": "Tots els monitors"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (compatible amb OpenAI)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "Torneu a transcriure",
       "retranscribeError": "No s'ha pogut tornar a transcriure. Torneu-ho a provar.",
       "transcribing": "S'està transcrivint...",
-      "transcriptionFailed": "La transcripció ha fallat. Podeu tornar a transcriure amb la icona de reintent."
+      "transcriptionFailed": "La transcripció ha fallat. Podeu tornar a transcriure amb la icona de reintent.",
+      "screenshot": {
+        "view": "Mostra la captura de pantalla",
+        "title": "Captura de pantalla",
+        "loading": "S'està carregant la captura de pantalla...",
+        "unavailable": "Captura de pantalla no disponible.",
+        "close": "Tanca",
+        "alt": "Captura de pantalla enviada amb aquesta transcripció"
+      }
     },
     "debug": {
       "title": "Depuració",

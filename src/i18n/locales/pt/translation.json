@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "Tecla de atalho"
       },
+      "context": {
+        "title": "Contexto",
+        "screenshot": {
+          "label": "Contexto de captura de tela",
+          "description": "Envia contexto visual com cada transcrição pós-processada. Requer a permissão de Gravação de Tela.",
+          "permissionMissing": "Permita o Handy em Ajustes do Sistema › Privacidade e Segurança › Gravação de Tela e reinicie o Handy.",
+          "scope": {
+            "label": "Telas a capturar",
+            "description": "Captura o monitor sob o cursor ou combina todos os monitores ativos em uma única imagem.",
+            "options": {
+              "currentMonitor": "Monitor atual",
+              "allMonitors": "Todos os monitores"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (Compatível com OpenAI)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "Re-transcrever",
       "retranscribeError": "Falha ao re-transcrever. Por favor, tente novamente.",
       "transcribing": "Transcrevendo...",
-      "transcriptionFailed": "A transcrição falhou. Você pode re-transcrever usando o ícone de tentar novamente."
+      "transcriptionFailed": "A transcrição falhou. Você pode re-transcrever usando o ícone de tentar novamente.",
+      "screenshot": {
+        "view": "Ver captura de tela",
+        "title": "Captura de tela",
+        "loading": "Carregando captura de tela...",
+        "unavailable": "Captura de tela indisponível.",
+        "close": "Fechar",
+        "alt": "Captura de tela enviada com esta transcrição"
+      }
     },
     "debug": {
       "title": "Depuração",

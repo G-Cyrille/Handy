@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "Kısayol Tuşu"
       },
+      "context": {
+        "title": "Bağlam",
+        "screenshot": {
+          "label": "Ekran görüntüsü bağlamı",
+          "description": "Her son işlenmiş transkripsiyonla birlikte görsel bağlam gönderir. Ekran Kaydı izni gerektirir.",
+          "permissionMissing": "Sistem Ayarları › Gizlilik ve Güvenlik › Ekran Kaydı altında Handy'ye izin verin, ardından Handy'yi yeniden başlatın.",
+          "scope": {
+            "label": "Yakalanacak ekranlar",
+            "description": "İmlecin altındaki monitörü yakalar veya tüm etkin monitörleri tek bir görüntüde birleştirir.",
+            "options": {
+              "currentMonitor": "Geçerli monitör",
+              "allMonitors": "Tüm monitörler"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI Uyumlu)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "Yeniden transkribe et",
       "retranscribeError": "Yeniden transkripsiyon başarısız oldu. Lütfen tekrar deneyin.",
       "transcribing": "Transkribe ediliyor...",
-      "transcriptionFailed": "Transkripsiyon başarısız oldu. Yeniden deneme simgesini kullanarak tekrar transkribe edebilirsiniz."
+      "transcriptionFailed": "Transkripsiyon başarısız oldu. Yeniden deneme simgesini kullanarak tekrar transkribe edebilirsiniz.",
+      "screenshot": {
+        "view": "Ekran görüntüsünü göster",
+        "title": "Ekran görüntüsü",
+        "loading": "Ekran görüntüsü yükleniyor...",
+        "unavailable": "Ekran görüntüsü kullanılamıyor.",
+        "close": "Kapat",
+        "alt": "Bu transkripsiyonla gönderilen ekran görüntüsü"
+      }
     },
     "debug": {
       "title": "Hata Ayıklama",

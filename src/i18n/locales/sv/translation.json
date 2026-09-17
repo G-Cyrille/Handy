@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "Snabbkommando"
       },
+      "context": {
+        "title": "Kontext",
+        "screenshot": {
+          "label": "Skärmbildskontext",
+          "description": "Skickar visuell kontext med varje efterbehandlad transkription. Kräver behörigheten Skärminspelning.",
+          "permissionMissing": "Tillåt Handy under Systeminställningar › Integritet och säkerhet › Skärminspelning och starta sedan om Handy.",
+          "scope": {
+            "label": "Skärmar att ta med",
+            "description": "Tar en bild av skärmen under markören eller sammanfogar alla aktiva skärmar till en bild.",
+            "options": {
+              "currentMonitor": "Aktuell skärm",
+              "allMonitors": "Alla skärmar"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI-kompatibelt)",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "Transkribera igen",
       "retranscribeError": "Misslyckades med att transkribera igen. Försök igen.",
       "transcribing": "Transkriberar...",
-      "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök."
+      "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök.",
+      "screenshot": {
+        "view": "Visa skärmbild",
+        "title": "Skärmbild",
+        "loading": "Läser in skärmbild...",
+        "unavailable": "Skärmbilden är inte tillgänglig.",
+        "close": "Stäng",
+        "alt": "Skärmbild som skickades med den här transkriptionen"
+      }
     },
     "debug": {
       "title": "Felsökning",

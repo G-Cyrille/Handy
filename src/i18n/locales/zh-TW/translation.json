@@ -404,6 +404,22 @@
       "hotkey": {
         "title": "快捷鍵"
       },
+      "context": {
+        "title": "脈絡",
+        "screenshot": {
+          "label": "螢幕截圖脈絡",
+          "description": "每次後處理逐字稿時附帶傳送螢幕脈絡。需要「螢幕錄製」權限。",
+          "permissionMissing": "請在「系統設定 › 隱私權與安全性 › 螢幕錄製」中允許 Handy，然後重新啟動 Handy。",
+          "scope": {
+            "label": "要擷取的螢幕",
+            "description": "擷取游標所在的顯示器，或將所有使用中的顯示器合成一張圖片。",
+            "options": {
+              "currentMonitor": "目前顯示器",
+              "allMonitors": "所有顯示器"
+            }
+          }
+        }
+      },
       "api": {
         "title": "API（相容 OpenAI）",
         "provider": {
@@ -467,7 +483,15 @@
       "retranscribe": "重新轉錄",
       "retranscribeError": "重新轉錄失敗，請重試。",
       "transcribing": "轉錄中...",
-      "transcriptionFailed": "轉錄失敗。您可以使用重試圖示重新轉錄。"
+      "transcriptionFailed": "轉錄失敗。您可以使用重試圖示重新轉錄。",
+      "screenshot": {
+        "view": "檢視螢幕截圖",
+        "title": "螢幕截圖",
+        "loading": "正在載入螢幕截圖...",
+        "unavailable": "螢幕截圖無法使用。",
+        "close": "關閉",
+        "alt": "隨此逐字稿一起傳送的螢幕截圖"
+      }
     },
     "debug": {
       "title": "偵錯",
