@@ -417,6 +417,14 @@
               "currentMonitor": "Aktuální monitor",
               "allMonitors": "Všechny monitory"
             }
+          },
+          "cursorHighlight": {
+            "label": "Zvětšit kurzor",
+            "description": "Zobrazí větší kontrastní ukazatel na pozici kurzoru při pořízení snímku."
+          },
+          "focusHighlight": {
+            "label": "Orámovat aktivní pole",
+            "description": "Orámuje aktivní textové pole při snímku, pokud Zpřístupnění poskytne jeho polohu. Cíl vložení se během diktování může změnit."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Načítání snímku obrazovky...",
         "unavailable": "Snímek obrazovky není k dispozici.",
         "close": "Zavřít",
-        "alt": "Snímek obrazovky odeslaný s tímto přepisem"
+        "alt": "Snímek obrazovky odeslaný s tímto přepisem",
+        "selectImage": "Obrázek",
+        "panorama": "Panorama",
+        "monitor": "Obrazovka {{number}}",
+        "zoomOut": "Oddálit",
+        "zoomIn": "Přiblížit",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Přizpůsobit",
+        "copy": "Kopírovat obrázek",
+        "copied": "Obrázek zkopírován",
+        "copyFailed": "Obrázek nelze zkopírovat",
+        "navigation": "Obrázek: přetažením posun, + a - přiblížení, 0 přizpůsobení"
       }
     },
     "debug": {

@@ -417,6 +417,14 @@
               "currentMonitor": "Current monitor",
               "allMonitors": "All monitors"
             }
+          },
+          "cursorHighlight": {
+            "label": "Enlarge cursor",
+            "description": "Show a larger, high-contrast pointer at the cursor position when captured."
+          },
+          "focusHighlight": {
+            "label": "Outline focused text field",
+            "description": "Outline the text field focused at capture time, when Accessibility provides its position. The paste destination can change during dictation."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Loading screenshot...",
         "unavailable": "Screenshot unavailable.",
         "close": "Close",
-        "alt": "Screenshot sent with this transcription"
+        "alt": "Screenshot sent with this transcription",
+        "selectImage": "Image",
+        "panorama": "Panorama",
+        "monitor": "Screen {{number}}",
+        "zoomOut": "Zoom out",
+        "zoomIn": "Zoom in",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Fit",
+        "copy": "Copy image",
+        "copied": "Image copied",
+        "copyFailed": "Could not copy image",
+        "navigation": "Image: drag to pan, use + and - to zoom, 0 to fit"
       }
     },
     "debug": {

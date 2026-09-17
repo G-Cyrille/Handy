@@ -17,6 +17,8 @@ mod overlay;
 mod paste_tx;
 pub mod portable;
 mod screenshot;
+#[cfg(target_os = "macos")]
+mod screenshot_focus;
 mod secure_input;
 mod settings;
 mod shortcut;
@@ -694,6 +696,8 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_mute_while_recording_setting,
             shortcut::change_append_trailing_space_setting,
             shortcut::change_screenshot_context_enabled_setting,
+            shortcut::change_screenshot_cursor_highlight_setting,
+            shortcut::change_screenshot_focus_highlight_setting,
             shortcut::change_screenshot_capture_scope_setting,
             shortcut::change_lazy_stream_close_setting,
             shortcut::change_vad_enabled_setting,
@@ -764,6 +768,7 @@ pub fn run(cli_args: CliArgs) {
             commands::history::toggle_history_entry_saved,
             commands::history::get_audio_file_path,
             commands::history::get_history_screenshot,
+            commands::history::copy_history_screenshot,
             commands::history::delete_history_entry,
             commands::history::retry_history_entry_transcription,
             commands::history::update_history_limit,

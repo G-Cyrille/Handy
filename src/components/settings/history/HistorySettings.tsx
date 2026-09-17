@@ -23,6 +23,7 @@ import { formatDateTime } from "@/utils/dateFormat";
 import { AudioPlayer, AudioPlayerGroup } from "../../ui/AudioPlayer";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
+import { ScreenshotLightbox } from "./ScreenshotLightbox";
 
 const IconButton: React.FC<{
   onClick: () => void;
@@ -46,73 +47,6 @@ const IconButton: React.FC<{
 );
 
 const PAGE_SIZE = 30;
-
-type ScreenshotState =
-  | { status: "loading" }
-  | { status: "ready"; src: string }
-  | { status: "error" };
-
-interface ScreenshotLightboxProps {
-  entryId: number;
-  onClose: () => void;
-}
-
-/** Loads an entry's screenshot on open and shows it in a dismissible dialog. */
-const ScreenshotLightbox: React.FC<ScreenshotLightboxProps> = ({
-  entryId,
-  onClose,
-}) => {
-  const { t } = useTranslation();
-  const [state, setState] = useState<ScreenshotState>({ status: "loading" });
-
-  useEffect(() => {
-    let cancelled = false;
-    commands
-      .getHistoryScreenshot(entryId)
-      .then((result) => {
-        if (cancelled) return;
-        setState(
-          result.status === "ok"
-            ? { status: "ready", src: result.data }
-            : { status: "error" },
-        );
-      })
-      .catch((error) => {
-        console.error("Failed to load screenshot:", error);
-        if (!cancelled) setState({ status: "error" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [entryId]);
-
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      title={t("settings.history.screenshot.title")}
-      closeLabel={t("settings.history.screenshot.close")}
-      className="max-w-4xl"
-      contentFades={false}
-    >
-      {state.status === "ready" ? (
-        <img
-          src={state.src}
-          alt={t("settings.history.screenshot.alt")}
-          className="mx-auto max-h-[70vh] w-auto rounded-md"
-        />
-      ) : (
-        <p className="py-8 text-center text-sm text-text/60">
-          {state.status === "loading"
-            ? t("settings.history.screenshot.loading")
-            : t("settings.history.screenshot.unavailable")}
-        </p>
-      )}
-    </Dialog>
-  );
-};
 
 interface OpenRecordingsButtonProps {
   onClick: () => void;

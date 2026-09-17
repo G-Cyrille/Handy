@@ -623,8 +623,11 @@ impl ShortcutAction for TranscribeAction {
         // visual context. Capture failures leave the request text-only.
         let screenshot_started = Instant::now();
         if self.post_process && settings.screenshot_context_enabled {
-            app.state::<ScreenshotContext>()
-                .begin_capture(settings.screenshot_capture_scope);
+            app.state::<ScreenshotContext>().begin_capture(
+                settings.screenshot_capture_scope,
+                settings.screenshot_cursor_highlight,
+                settings.screenshot_focus_highlight,
+            );
         }
         let screenshot_elapsed = screenshot_started.elapsed();
 
@@ -847,7 +850,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
-                                    screenshot.as_ref().map(CapturedScreenshot::jpeg),
+                                    screenshot.as_ref(),
                                 ) {
                                     error!("Failed to save history entry: {}", err);
                                 }
@@ -912,7 +915,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     None,
                                     None,
-                                    screenshot.as_ref().map(CapturedScreenshot::jpeg),
+                                    screenshot.as_ref(),
                                 ) {
                                     error!("Failed to save failed history entry: {}", save_err);
                                 }

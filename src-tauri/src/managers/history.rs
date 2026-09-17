@@ -1,3 +1,4 @@
+use crate::screenshot::CapturedScreenshot;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local, Utc};
 use log::{debug, error, info};
@@ -247,7 +248,7 @@ impl HistoryManager {
         post_process_requested: bool,
         post_processed_text: Option<String>,
         post_process_prompt: Option<String>,
-        screenshot: Option<&[u8]>,
+        screenshot: Option<&CapturedScreenshot>,
     ) -> Result<HistoryEntry> {
         let timestamp = Utc::now().timestamp();
         let title = self.format_timestamp_title(timestamp);
@@ -256,8 +257,15 @@ impl HistoryManager {
         let entry = insert_with_screenshot(
             &self.recordings_dir,
             &file_name,
-            screenshot,
+            screenshot.map(CapturedScreenshot::jpeg),
             |screenshot_file_name| {
+                if let (Some(capture), Some(name)) = (screenshot, &screenshot_file_name) {
+                    let path = self.recordings_dir.join(name);
+                    if let Err(err) = capture.save_monitor_images(&path) {
+                        log::warn!("Failed to save individual monitor images: {err}");
+                        let _ = fs::remove_file(path.with_extension("images.json"));
+                    }
+                }
                 conn.execute(
                     "INSERT INTO transcription_history (
                         file_name,
@@ -699,6 +707,11 @@ fn insert_with_screenshot<T>(
     if result.is_err() {
         if let Some(file_name) = screenshot_file_name {
             remove_recording_file(recordings_dir, &file_name);
+            let _ = fs::remove_file(
+                recordings_dir
+                    .join(&file_name)
+                    .with_extension("images.json"),
+            );
         }
     }
     result
@@ -722,6 +735,11 @@ fn remove_entry_files(
     let wav_removed = remove_recording_file(recordings_dir, file_name);
     if let Some(screenshot) = screenshot_file_name.filter(|name| is_plain_basename(name)) {
         remove_recording_file(recordings_dir, screenshot);
+        let _ = fs::remove_file(
+            recordings_dir
+                .join(screenshot)
+                .with_extension("images.json"),
+        );
     }
     wav_removed
 }
@@ -880,12 +898,14 @@ mod tests {
             |screenshot_file_name| {
                 assert_eq!(screenshot_file_name.as_deref(), Some("handy-1.jpg"));
                 assert!(dir.path().join("handy-1.jpg").exists());
+                fs::write(dir.path().join("handy-1.images.json"), b"[]").unwrap();
                 Err(anyhow!("insert failed"))
             },
         );
 
         assert!(result.is_err());
         assert!(!dir.path().join("handy-1.jpg").exists());
+        assert!(!dir.path().join("handy-1.images.json").exists());
     }
 
     #[test]
@@ -915,6 +935,8 @@ mod tests {
         let jpg = dir.path().join("handy-1.jpg");
         fs::write(&wav, b"wav").unwrap();
         fs::write(&jpg, b"jpg").unwrap();
+        let sidecar = jpg.with_extension("images.json");
+        fs::write(&sidecar, b"[]").unwrap();
 
         assert!(remove_entry_files(
             dir.path(),
@@ -924,6 +946,7 @@ mod tests {
 
         assert!(!wav.exists());
         assert!(!jpg.exists());
+        assert!(!sidecar.exists());
     }
 
     #[test]

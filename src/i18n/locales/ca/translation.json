@@ -417,6 +417,14 @@
               "currentMonitor": "Monitor actual",
               "allMonitors": "Tots els monitors"
             }
+          },
+          "cursorHighlight": {
+            "label": "Amplia el cursor",
+            "description": "Mostra un punter més gran i contrastat a la posició del cursor en capturar."
+          },
+          "focusHighlight": {
+            "label": "Emmarca el camp actiu",
+            "description": "Emmarca el camp de text actiu en capturar si Accessibilitat en proporciona la posició. La destinació d’enganxat pot canviar durant el dictat."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "S'està carregant la captura de pantalla...",
         "unavailable": "Captura de pantalla no disponible.",
         "close": "Tanca",
-        "alt": "Captura de pantalla enviada amb aquesta transcripció"
+        "alt": "Captura de pantalla enviada amb aquesta transcripció",
+        "selectImage": "Imatge",
+        "panorama": "Panorama",
+        "monitor": "Pantalla {{number}}",
+        "zoomOut": "Allunya",
+        "zoomIn": "Apropa",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Ajusta",
+        "copy": "Copia la imatge",
+        "copied": "Imatge copiada",
+        "copyFailed": "No s’ha pogut copiar la imatge",
+        "navigation": "Imatge: arrossega per moure, + i - per al zoom, 0 per ajustar"
       }
     },
     "debug": {

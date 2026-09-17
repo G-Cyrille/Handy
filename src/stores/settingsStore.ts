@@ -159,6 +159,10 @@ const settingUpdaters: {
     commands.changePostProcessEnabledSetting(value as boolean),
   post_process_selected_prompt_id: (value) =>
     commands.setPostProcessSelectedPrompt(value as string),
+  screenshot_focus_highlight: (value) =>
+    commands.changeScreenshotFocusHighlightSetting(value as boolean),
+  screenshot_cursor_highlight: (value) =>
+    commands.changeScreenshotCursorHighlightSetting(value as boolean),
   screenshot_context_enabled: (value) =>
     commands.changeScreenshotContextEnabledSetting(value as boolean),
   screenshot_capture_scope: (value) =>

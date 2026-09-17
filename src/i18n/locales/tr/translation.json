@@ -417,6 +417,14 @@
               "currentMonitor": "Geçerli monitör",
               "allMonitors": "Tüm monitörler"
             }
+          },
+          "cursorHighlight": {
+            "label": "İmleci büyüt",
+            "description": "Yakalama anındaki imleç konumunda daha büyük ve belirgin bir işaretçi gösterir."
+          },
+          "focusHighlight": {
+            "label": "Etkin alanı çerçevele",
+            "description": "Erişilebilirlik konumu sağlarsa yakalama anındaki etkin metin alanını çerçeveler. Yapıştırma hedefi dikte sırasında değişebilir."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Ekran görüntüsü yükleniyor...",
         "unavailable": "Ekran görüntüsü kullanılamıyor.",
         "close": "Kapat",
-        "alt": "Bu transkripsiyonla gönderilen ekran görüntüsü"
+        "alt": "Bu transkripsiyonla gönderilen ekran görüntüsü",
+        "selectImage": "Görsel",
+        "panorama": "Panorama",
+        "monitor": "Ekran {{number}}",
+        "zoomOut": "Uzaklaştır",
+        "zoomIn": "Yakınlaştır",
+        "zoomLevel": "Yakınlaştırma",
+        "actualSize": "%100",
+        "fit": "Sığdır",
+        "copy": "Görseli kopyala",
+        "copied": "Görsel kopyalandı",
+        "copyFailed": "Görsel kopyalanamadı",
+        "navigation": "Görsel: taşımak için sürükleyin, yakınlaştırmak için + ve -, sığdırmak için 0"
       }
     },
     "debug": {

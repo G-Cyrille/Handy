@@ -417,6 +417,14 @@
               "currentMonitor": "当前显示器",
               "allMonitors": "所有显示器"
             }
+          },
+          "cursorHighlight": {
+            "label": "放大光标",
+            "description": "在截屏时的光标位置显示更大、更醒目的指针。"
+          },
+          "focusHighlight": {
+            "label": "标出当前输入框",
+            "description": "如果辅助功能提供位置，则框出截屏时获得焦点的文本框。听写过程中粘贴目标可能发生变化。"
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "正在加载截图...",
         "unavailable": "截图不可用。",
         "close": "关闭",
-        "alt": "随此转录一起发送的截图"
+        "alt": "随此转录一起发送的截图",
+        "selectImage": "图像",
+        "panorama": "全景",
+        "monitor": "屏幕 {{number}}",
+        "zoomOut": "缩小",
+        "zoomIn": "放大",
+        "zoomLevel": "缩放",
+        "actualSize": "100%",
+        "fit": "适应窗口",
+        "copy": "复制图像",
+        "copied": "图像已复制",
+        "copyFailed": "无法复制图像",
+        "navigation": "图像：拖动平移，+ 和 - 缩放，0 适应窗口"
       }
     },
     "debug": {

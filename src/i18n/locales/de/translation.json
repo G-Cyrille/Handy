@@ -417,6 +417,14 @@
               "currentMonitor": "Aktueller Bildschirm",
               "allMonitors": "Alle Bildschirme"
             }
+          },
+          "cursorHighlight": {
+            "label": "Cursor vergrößern",
+            "description": "Zeigt einen größeren, kontrastreichen Zeiger an der Cursorposition zum Aufnahmezeitpunkt."
+          },
+          "focusHighlight": {
+            "label": "Aktives Textfeld umranden",
+            "description": "Umrandet das bei der Aufnahme aktive Textfeld, sofern die Bedienungshilfen seine Position liefern. Das Einfügeziel kann sich während des Diktats ändern."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Screenshot wird geladen...",
         "unavailable": "Screenshot nicht verfügbar.",
         "close": "Schließen",
-        "alt": "Mit dieser Transkription gesendeter Screenshot"
+        "alt": "Mit dieser Transkription gesendeter Screenshot",
+        "selectImage": "Bild",
+        "panorama": "Panorama",
+        "monitor": "Bildschirm {{number}}",
+        "zoomOut": "Verkleinern",
+        "zoomIn": "Vergrößern",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Einpassen",
+        "copy": "Bild kopieren",
+        "copied": "Bild kopiert",
+        "copyFailed": "Bild konnte nicht kopiert werden",
+        "navigation": "Bild: Ziehen zum Verschieben, + und - zum Zoomen, 0 zum Einpassen"
       }
     },
     "debug": {

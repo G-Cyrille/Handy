@@ -1281,6 +1281,30 @@ pub fn change_screenshot_context_enabled_setting(
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_screenshot_cursor_highlight_setting(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.screenshot_cursor_highlight = enabled;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_screenshot_focus_highlight_setting(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.screenshot_focus_highlight = enabled;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_screenshot_capture_scope_setting(
     app: AppHandle,
     scope: ScreenshotCaptureScope,

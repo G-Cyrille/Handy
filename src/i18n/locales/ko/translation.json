@@ -417,6 +417,14 @@
               "currentMonitor": "현재 모니터",
               "allMonitors": "모든 모니터"
             }
+          },
+          "cursorHighlight": {
+            "label": "커서 확대",
+            "description": "캡처 시 커서 위치에 크고 선명한 포인터를 표시합니다."
+          },
+          "focusHighlight": {
+            "label": "활성 입력란 테두리 표시",
+            "description": "접근성에서 위치를 제공하면 캡처 시 활성 텍스트 입력란을 표시합니다. 받아쓰기 중 붙여넣기 대상이 바뀔 수 있습니다."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "스크린샷 불러오는 중...",
         "unavailable": "스크린샷을 사용할 수 없습니다.",
         "close": "닫기",
-        "alt": "이 전사와 함께 전송된 스크린샷"
+        "alt": "이 전사와 함께 전송된 스크린샷",
+        "selectImage": "이미지",
+        "panorama": "파노라마",
+        "monitor": "화면 {{number}}",
+        "zoomOut": "축소",
+        "zoomIn": "확대",
+        "zoomLevel": "배율",
+        "actualSize": "100%",
+        "fit": "맞춤",
+        "copy": "이미지 복사",
+        "copied": "이미지 복사됨",
+        "copyFailed": "이미지를 복사하지 못했습니다",
+        "navigation": "이미지: 드래그로 이동, + 및 -로 확대/축소, 0으로 맞춤"
       }
     },
     "debug": {

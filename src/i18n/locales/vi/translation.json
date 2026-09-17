@@ -417,6 +417,14 @@
               "currentMonitor": "Màn hình hiện tại",
               "allMonitors": "Tất cả màn hình"
             }
+          },
+          "cursorHighlight": {
+            "label": "Phóng to con trỏ",
+            "description": "Hiển thị con trỏ lớn, tương phản cao tại vị trí con trỏ khi chụp."
+          },
+          "focusHighlight": {
+            "label": "Viền ô nhập đang chọn",
+            "description": "Viền ô văn bản đang chọn lúc chụp nếu Trợ năng cung cấp vị trí. Đích dán có thể thay đổi trong khi đọc chính tả."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Đang tải ảnh chụp màn hình...",
         "unavailable": "Ảnh chụp màn hình không khả dụng.",
         "close": "Đóng",
-        "alt": "Ảnh chụp màn hình được gửi cùng bản chép lời này"
+        "alt": "Ảnh chụp màn hình được gửi cùng bản chép lời này",
+        "selectImage": "Hình ảnh",
+        "panorama": "Toàn cảnh",
+        "monitor": "Màn hình {{number}}",
+        "zoomOut": "Thu nhỏ",
+        "zoomIn": "Phóng to",
+        "zoomLevel": "Thu phóng",
+        "actualSize": "100%",
+        "fit": "Vừa khung",
+        "copy": "Sao chép ảnh",
+        "copied": "Đã sao chép ảnh",
+        "copyFailed": "Không thể sao chép ảnh",
+        "navigation": "Hình ảnh: kéo để di chuyển, + và - để thu phóng, 0 để vừa khung"
       }
     },
     "debug": {

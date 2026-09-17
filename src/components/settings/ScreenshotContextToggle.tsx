@@ -112,6 +112,40 @@ export const ScreenshotContextToggle: React.FC<ScreenshotContextToggleProps> =
             />
           </SettingContainer>
         )}
+        {enabled && (
+          <ToggleSwitch
+            checked={getSetting("screenshot_cursor_highlight") ?? false}
+            onChange={(value) =>
+              updateSetting("screenshot_cursor_highlight", value)
+            }
+            isUpdating={isUpdating("screenshot_cursor_highlight")}
+            label={t(
+              "settings.postProcessing.context.screenshot.cursorHighlight.label",
+            )}
+            description={t(
+              "settings.postProcessing.context.screenshot.cursorHighlight.description",
+            )}
+            descriptionMode="tooltip"
+            grouped={grouped}
+          />
+        )}
+        {enabled && (
+          <ToggleSwitch
+            checked={getSetting("screenshot_focus_highlight") ?? false}
+            onChange={(value) =>
+              updateSetting("screenshot_focus_highlight", value)
+            }
+            isUpdating={isUpdating("screenshot_focus_highlight")}
+            label={t(
+              "settings.postProcessing.context.screenshot.focusHighlight.label",
+            )}
+            description={t(
+              "settings.postProcessing.context.screenshot.focusHighlight.description",
+            )}
+            descriptionMode="tooltip"
+            grouped={grouped}
+          />
+        )}
         {enabled && !permissionGranted && (
           <Alert variant="warning" contained>
             {t("settings.postProcessing.context.screenshot.permissionMissing")}

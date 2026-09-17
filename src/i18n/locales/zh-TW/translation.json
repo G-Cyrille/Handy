@@ -417,6 +417,14 @@
               "currentMonitor": "目前顯示器",
               "allMonitors": "所有顯示器"
             }
+          },
+          "cursorHighlight": {
+            "label": "放大游標",
+            "description": "在擷取畫面時的游標位置顯示更大、更清楚的指標。"
+          },
+          "focusHighlight": {
+            "label": "標示目前輸入欄位",
+            "description": "若輔助使用提供位置，則框出擷取時取得焦點的文字欄位。聽寫過程中貼上目標可能改變。"
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "正在載入螢幕截圖...",
         "unavailable": "螢幕截圖無法使用。",
         "close": "關閉",
-        "alt": "隨此逐字稿一起傳送的螢幕截圖"
+        "alt": "隨此逐字稿一起傳送的螢幕截圖",
+        "selectImage": "影像",
+        "panorama": "全景",
+        "monitor": "螢幕 {{number}}",
+        "zoomOut": "縮小",
+        "zoomIn": "放大",
+        "zoomLevel": "縮放",
+        "actualSize": "100%",
+        "fit": "符合視窗",
+        "copy": "複製影像",
+        "copied": "已複製影像",
+        "copyFailed": "無法複製影像",
+        "navigation": "影像：拖曳移動，+ 和 - 縮放，0 符合視窗"
       }
     },
     "debug": {

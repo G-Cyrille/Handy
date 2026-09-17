@@ -16,7 +16,11 @@ fn load_history_screenshot(
 ) -> Option<CapturedScreenshot> {
     let path = history_manager.get_screenshot_file_path(entry)?;
     match std::fs::read(&path) {
-        Ok(bytes) => CapturedScreenshot::from_jpeg(bytes),
+        Ok(bytes) => {
+            let mut screenshot = CapturedScreenshot::from_jpeg(bytes)?;
+            screenshot.load_monitor_images(&path);
+            Some(screenshot)
+        }
         Err(err) => {
             warn!(
                 "Screenshot for history entry {} is unavailable: {}",
@@ -67,7 +71,7 @@ pub async fn get_audio_file_path(
         .map(|s| s.to_string())
 }
 
-/// Screenshot stored with a history entry, as a `data:image/jpeg;base64` URL.
+/// Stored panorama and individual monitors as JPEG data URLs.
 /// Looked up by entry id so the frontend never names a file.
 #[tauri::command]
 #[specta::specta]
@@ -75,7 +79,7 @@ pub async fn get_history_screenshot(
     _app: AppHandle,
     history_manager: State<'_, Arc<HistoryManager>>,
     id: i64,
-) -> Result<String, String> {
+) -> Result<Vec<String>, String> {
     let entry = history_manager
         .get_entry_by_id(id)
         .await
@@ -83,8 +87,41 @@ pub async fn get_history_screenshot(
         .ok_or_else(|| format!("History entry {} not found", id))?;
 
     load_history_screenshot(&history_manager, &entry)
-        .map(|screenshot| screenshot.data_url())
+        .map(|screenshot| screenshot.history_data_urls())
         .ok_or_else(|| format!("History entry {} has no readable screenshot", id))
+}
+
+/// Copy decoded pixels, so other applications receive an image rather than a URL.
+#[tauri::command]
+#[specta::specta]
+pub async fn copy_history_screenshot(
+    app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+    id: i64,
+    index: usize,
+) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    let entry = history_manager
+        .get_entry_by_id(id)
+        .await
+        .map_err(|err| err.to_string())?
+        .ok_or("History entry not found")?;
+    let screenshot =
+        load_history_screenshot(&history_manager, &entry).ok_or("Screenshot unavailable")?;
+    let jpeg = screenshot
+        .history_image(index)
+        .ok_or("Screenshot index out of range")?;
+    let rgba = image::load_from_memory_with_format(jpeg, image::ImageFormat::Jpeg)
+        .map_err(|err| err.to_string())?
+        .to_rgba8();
+    let (width, height) = rgba.dimensions();
+    app.clipboard()
+        .write_image(&tauri::image::Image::new_owned(
+            rgba.into_raw(),
+            width,
+            height,
+        ))
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]

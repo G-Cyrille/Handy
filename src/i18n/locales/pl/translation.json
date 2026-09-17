@@ -417,6 +417,14 @@
               "currentMonitor": "Bieżący monitor",
               "allMonitors": "Wszystkie monitory"
             }
+          },
+          "cursorHighlight": {
+            "label": "Powiększ kursor",
+            "description": "Pokazuje większy, kontrastowy wskaźnik w pozycji kursora podczas wykonywania zrzutu."
+          },
+          "focusHighlight": {
+            "label": "Obramuj aktywne pole",
+            "description": "Obramowuje aktywne pole tekstowe podczas zrzutu, jeśli Dostępność udostępnia jego pozycję. Cel wklejania może się zmienić podczas dyktowania."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Wczytywanie zrzutu ekranu...",
         "unavailable": "Zrzut ekranu niedostępny.",
         "close": "Zamknij",
-        "alt": "Zrzut ekranu wysłany z tą transkrypcją"
+        "alt": "Zrzut ekranu wysłany z tą transkrypcją",
+        "selectImage": "Obraz",
+        "panorama": "Panorama",
+        "monitor": "Ekran {{number}}",
+        "zoomOut": "Pomniejsz",
+        "zoomIn": "Powiększ",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Dopasuj",
+        "copy": "Kopiuj obraz",
+        "copied": "Obraz skopiowany",
+        "copyFailed": "Nie udało się skopiować obrazu",
+        "navigation": "Obraz: przeciągnij, aby przesunąć, + i - zmieniają skalę, 0 dopasowuje"
       }
     },
     "debug": {

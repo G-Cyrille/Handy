@@ -417,6 +417,14 @@
               "currentMonitor": "Aktuell skärm",
               "allMonitors": "Alla skärmar"
             }
+          },
+          "cursorHighlight": {
+            "label": "Förstora markören",
+            "description": "Visar en större markör med hög kontrast på markörens position vid skärmbilden."
+          },
+          "focusHighlight": {
+            "label": "Rama in aktivt textfält",
+            "description": "Ramar in det aktiva textfältet vid skärmbilden om Hjälpmedel anger positionen. Inklistringsmålet kan ändras under dikteringen."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Läser in skärmbild...",
         "unavailable": "Skärmbilden är inte tillgänglig.",
         "close": "Stäng",
-        "alt": "Skärmbild som skickades med den här transkriptionen"
+        "alt": "Skärmbild som skickades med den här transkriptionen",
+        "selectImage": "Bild",
+        "panorama": "Panorama",
+        "monitor": "Skärm {{number}}",
+        "zoomOut": "Zooma ut",
+        "zoomIn": "Zooma in",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Anpassa",
+        "copy": "Kopiera bild",
+        "copied": "Bild kopierad",
+        "copyFailed": "Kunde inte kopiera bilden",
+        "navigation": "Bild: dra för att flytta, + och - för zoom, 0 för anpassning"
       }
     },
     "debug": {

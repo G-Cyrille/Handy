@@ -417,6 +417,14 @@
               "currentMonitor": "Aktuel skærm",
               "allMonitors": "Alle skærme"
             }
+          },
+          "cursorHighlight": {
+            "label": "Forstør markøren",
+            "description": "Viser en større markør med høj kontrast på markørens position ved optagelsen."
+          },
+          "focusHighlight": {
+            "label": "Indram aktivt tekstfelt",
+            "description": "Indrammer det aktive tekstfelt ved optagelsen, hvis Tilgængelighed angiver positionen. Indsættelsesstedet kan ændres under diktering."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Indlæser skærmbillede...",
         "unavailable": "Skærmbillede ikke tilgængeligt.",
         "close": "Luk",
-        "alt": "Skærmbillede sendt med denne transskription"
+        "alt": "Skærmbillede sendt med denne transskription",
+        "selectImage": "Billede",
+        "panorama": "Panorama",
+        "monitor": "Skærm {{number}}",
+        "zoomOut": "Zoom ud",
+        "zoomIn": "Zoom ind",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Tilpas",
+        "copy": "Kopiér billede",
+        "copied": "Billede kopieret",
+        "copyFailed": "Kunne ikke kopiere billedet",
+        "navigation": "Billede: træk for at flytte, + og - for zoom, 0 for tilpasning"
       }
     },
     "debug": {

@@ -359,6 +359,22 @@ async changeScreenshotContextEnabledSetting(enabled: boolean) : Promise<Result<n
     else return { status: "error", error: e  as any };
 }
 },
+async changeScreenshotCursorHighlightSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_screenshot_cursor_highlight_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeScreenshotFocusHighlightSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_screenshot_focus_highlight_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async changeScreenshotCaptureScopeSetting(scope: ScreenshotCaptureScope) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_screenshot_capture_scope_setting", { scope }) };
@@ -892,12 +908,23 @@ async getAudioFilePath(fileName: string) : Promise<Result<string, string>> {
 }
 },
 /**
- * Screenshot stored with a history entry, as a `data:image/jpeg;base64` URL.
+ * Stored panorama and individual monitors as JPEG data URLs.
  * Looked up by entry id so the frontend never names a file.
  */
-async getHistoryScreenshot(id: number) : Promise<Result<string, string>> {
+async getHistoryScreenshot(id: number) : Promise<Result<string[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_history_screenshot", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Copy decoded pixels, so other applications receive an image rather than a URL.
+ */
+async copyHistoryScreenshot(id: number, index: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("copy_history_screenshot", { id, index }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -1016,6 +1043,14 @@ selected_channel?: number | null; clamshell_microphone?: string | null; selected
  * `screenshot.rs`). Off by default; captures on macOS only.
  */
 screenshot_context_enabled?: boolean; 
+/**
+ * Draw an enlarged pointer at the cursor position in screenshot context.
+ */
+screenshot_cursor_highlight?: boolean; 
+/**
+ * Outline the focused text input at capture time when Accessibility exposes it.
+ */
+screenshot_focus_highlight?: boolean; 
 /**
  * Capture the monitor under the cursor or compose every active monitor.
  */

@@ -4,7 +4,8 @@
 //! grabs either the monitor under the cursor or every active monitor *before*
 //! the recording overlay appears. Multi-monitor captures keep a detailed
 //! panorama for history and send each monitor to the LLM as a separate image,
-//! so adding displays does not reduce the readable resolution of each one. The
+//! so adding displays does not reduce the readable resolution of each one.
+//! An optional enlarged pointer marks the cursor at capture time in both outputs. The
 //! JPEG bytes are only written to disk next to the WAV once the history entry
 //! is saved, so cancelled or empty recordings leave no file behind.
 //!
@@ -37,6 +38,133 @@ struct MonitorCapture {
     image: RgbaImage,
 }
 
+/// Draw an enlarged mouse pointer with its hotspot at the captured position.
+/// Scale it for both the per-monitor LLM image and the logical-size panorama.
+fn mark_cursor(monitor: &mut MonitorCapture, cursor: (f64, f64)) {
+    let local_x = cursor.0 - f64::from(monitor.x);
+    let local_y = cursor.1 - f64::from(monitor.y);
+    if !(0.0..f64::from(monitor.logical_width)).contains(&local_x)
+        || !(0.0..f64::from(monitor.logical_height)).contains(&local_y)
+    {
+        return;
+    }
+    let (width, height) = monitor.image.dimensions();
+    if width == 0 || height == 0 {
+        return;
+    }
+    let tip = (
+        local_x * f64::from(width) / f64::from(monitor.logical_width),
+        local_y * f64::from(height) / f64::from(monitor.logical_height),
+    );
+    let scale = (f64::from(width.max(height)) / f64::from(MAX_EDGE))
+        .max(f64::from(width) / f64::from(monitor.logical_width))
+        .max(f64::from(height) / f64::from(monitor.logical_height))
+        .max(1.0);
+    let points = [
+        (0.0, 0.0),
+        (0.0, 30.0),
+        (8.0, 23.0),
+        (14.0, 36.0),
+        (20.0, 33.0),
+        (14.0, 21.0),
+        (25.0, 21.0),
+    ]
+    .map(|(x, y)| (tip.0 + x * scale, tip.1 + y * scale));
+    let min_x = tip.0.max(0.0) as u32;
+    let min_y = tip.1.max(0.0) as u32;
+    let max_x = ((tip.0 + 26.0 * scale).ceil() as u32).min(width - 1);
+    let max_y = ((tip.1 + 37.0 * scale).ceil() as u32).min(height - 1);
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let mut inside = false;
+            for i in 0..points.len() {
+                let (ax, ay) = points[i];
+                let (bx, by) = points[(i + 1) % points.len()];
+                if (ay > f64::from(y)) != (by > f64::from(y))
+                    && f64::from(x) < (bx - ax) * (f64::from(y) - ay) / (by - ay) + ax
+                {
+                    inside = !inside;
+                }
+            }
+            if inside {
+                monitor.image.put_pixel(x, y, Rgba([20, 20, 20, 255]));
+            }
+        }
+    }
+    for i in 0..points.len() {
+        draw_segment(
+            &mut monitor.image,
+            points[i],
+            points[(i + 1) % points.len()],
+            1.5 * scale,
+            Rgba([255, 255, 255, 255]),
+        );
+    }
+}
+
+/// Clip the field's desktop rectangle to each display before converting to pixels.
+fn mark_focused_field(monitor: &mut MonitorCapture, bounds: (f64, f64, f64, f64)) {
+    let (x, y, width, height) = bounds;
+    let left = (x - f64::from(monitor.x)).max(0.0);
+    let top = (y - f64::from(monitor.y)).max(0.0);
+    let right = (x + width - f64::from(monitor.x)).min(f64::from(monitor.logical_width));
+    let bottom = (y + height - f64::from(monitor.y)).min(f64::from(monitor.logical_height));
+    if left >= right || top >= bottom || monitor.image.width() == 0 || monitor.image.height() == 0 {
+        return;
+    }
+    let sx = f64::from(monitor.image.width()) / f64::from(monitor.logical_width);
+    let sy = f64::from(monitor.image.height()) / f64::from(monitor.logical_height);
+    let points = [
+        (left * sx, top * sy),
+        (right * sx - 1.0, top * sy),
+        (right * sx - 1.0, bottom * sy - 1.0),
+        (left * sx, bottom * sy - 1.0),
+    ];
+    let scale = sx
+        .max(sy)
+        .max(f64::from(monitor.image.width().max(monitor.image.height())) / f64::from(MAX_EDGE));
+    for (radius, color) in [
+        (3.0 * scale, Rgba([255, 255, 255, 255])),
+        (1.5 * scale, Rgba([230, 40, 70, 255])),
+    ] {
+        for i in 0..4 {
+            draw_segment(
+                &mut monitor.image,
+                points[i],
+                points[(i + 1) % 4],
+                radius,
+                color,
+            );
+        }
+    }
+}
+
+fn draw_segment(
+    image: &mut RgbaImage,
+    start: (f64, f64),
+    end: (f64, f64),
+    radius: f64,
+    color: Rgba<u8>,
+) {
+    let min_x = (start.0.min(end.0) - radius).max(0.0) as u32;
+    let max_x = ((start.0.max(end.0) + radius).ceil() as u32).min(image.width() - 1);
+    let min_y = (start.1.min(end.1) - radius).max(0.0) as u32;
+    let max_y = ((start.1.max(end.1) + radius).ceil() as u32).min(image.height() - 1);
+    let vx = end.0 - start.0;
+    let vy = end.1 - start.1;
+    let squared_length = vx * vx + vy * vy;
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let px = f64::from(x) - start.0;
+            let py = f64::from(y) - start.1;
+            let t = ((px * vx + py * vy) / squared_length).clamp(0.0, 1.0);
+            if (px - t * vx).powi(2) + (py - t * vy).powi(2) <= radius * radius {
+                image.put_pixel(x, y, color);
+            }
+        }
+    }
+}
+
 /// A screenshot ready to be sent to an LLM and persisted with a history entry.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CapturedScreenshot {
@@ -61,6 +189,57 @@ impl CapturedScreenshot {
         }
     }
 
+    /// Persist separate monitor images beside the panorama for history and retries.
+    pub fn save_monitor_images(&self, panorama_path: &std::path::Path) -> Result<(), String> {
+        if self.llm_jpegs.is_empty() {
+            return Ok(());
+        }
+        let images: Vec<_> = self
+            .llm_jpegs
+            .iter()
+            .map(|jpeg| BASE64.encode(jpeg))
+            .collect();
+        let bytes = serde_json::to_vec(&images).map_err(|err| err.to_string())?;
+        std::fs::write(panorama_path.with_extension("images.json"), bytes)
+            .map_err(|err| err.to_string())
+    }
+
+    /// Older entries have only a panorama. Missing or corrupt sidecars use that fallback.
+    pub fn load_monitor_images(&mut self, panorama_path: &std::path::Path) {
+        let load = || -> Option<Vec<Vec<u8>>> {
+            let bytes = std::fs::read(panorama_path.with_extension("images.json")).ok()?;
+            let images: Vec<String> = serde_json::from_slice(&bytes).ok()?;
+            images
+                .into_iter()
+                .map(|encoded| {
+                    let jpeg = BASE64.decode(encoded).ok()?;
+                    image::load_from_memory_with_format(&jpeg, ImageFormat::Jpeg).ok()?;
+                    Some(jpeg)
+                })
+                .collect()
+        };
+        self.llm_jpegs = load().unwrap_or_default();
+    }
+
+    /// Panorama first, followed by individual monitors when several were captured.
+    pub fn history_data_urls(&self) -> Vec<String> {
+        let mut images = vec![self.data_url()];
+        if self.llm_jpegs.len() > 1 {
+            images.extend(self.llm_data_urls());
+        }
+        images
+    }
+
+    pub fn history_image(&self, index: usize) -> Option<&[u8]> {
+        if index == 0 {
+            Some(&self.jpeg)
+        } else if self.llm_jpegs.len() > 1 {
+            self.llm_jpegs.get(index - 1).map(Vec::as_slice)
+        } else {
+            None
+        }
+    }
+
     pub fn jpeg(&self) -> &[u8] {
         &self.jpeg
     }
@@ -71,8 +250,7 @@ impl CapturedScreenshot {
     }
 
     /// One `data:` URL per monitor for OpenAI-compatible `image_url` parts.
-    /// A screenshot loaded from history only has its persisted panorama, which
-    /// remains detailed and is returned as a single image.
+    /// Older history entries without a monitor sidecar fall back to the panorama.
     pub fn llm_data_urls(&self) -> Vec<String> {
         let images = if self.llm_jpegs.is_empty() {
             std::slice::from_ref(&self.jpeg)
@@ -231,22 +409,46 @@ fn encode_capture(raw: RawScreenshot) -> Result<CapturedScreenshot, String> {
 /// a hotkey press can't surface a system dialog. Permission is requested from
 /// the settings UI when the user turns the feature on.
 #[cfg(target_os = "macos")]
-fn capture_screenshot(scope: ScreenshotCaptureScope) -> Result<RawScreenshot, String> {
+fn capture_screenshot(
+    scope: ScreenshotCaptureScope,
+    cursor_highlight: bool,
+    focus_highlight: bool,
+) -> Result<RawScreenshot, String> {
     use objc2_core_graphics::{CGEvent, CGPreflightScreenCaptureAccess};
 
     if !CGPreflightScreenCaptureAccess() {
         return Err("Screen Recording permission not granted".to_string());
     }
 
+    let focused_bounds = focus_highlight
+        .then(crate::screenshot_focus::focused_text_bounds)
+        .flatten();
+    let cursor = CGEvent::location(CGEvent::new(None).as_deref());
+    let cursor_position = (cursor.x, cursor.y);
     match scope {
         ScreenshotCaptureScope::CurrentMonitor => {
-            let cursor = CGEvent::location(CGEvent::new(None).as_deref());
             let monitor = xcap::Monitor::from_point(cursor.x as i32, cursor.y as i32)
                 .map_err(|err| format!("no monitor under cursor: {err}"))?;
-            monitor
+            let image = monitor
                 .capture_image()
-                .map(RawScreenshot::Single)
-                .map_err(|err| format!("monitor capture failed: {err}"))
+                .map_err(|err| format!("monitor capture failed: {err}"))?;
+            if !cursor_highlight && focused_bounds.is_none() {
+                return Ok(RawScreenshot::Single(image));
+            }
+            let mut capture = MonitorCapture {
+                x: monitor.x().map_err(|err| err.to_string())?,
+                y: monitor.y().map_err(|err| err.to_string())?,
+                logical_width: monitor.width().map_err(|err| err.to_string())?,
+                logical_height: monitor.height().map_err(|err| err.to_string())?,
+                image,
+            };
+            if let Some(bounds) = focused_bounds {
+                mark_focused_field(&mut capture, bounds);
+            }
+            if cursor_highlight {
+                mark_cursor(&mut capture, cursor_position);
+            }
+            Ok(RawScreenshot::Single(capture.image))
         }
         ScreenshotCaptureScope::AllMonitors => {
             let monitors = xcap::Monitor::all()
@@ -269,13 +471,20 @@ fn capture_screenshot(scope: ScreenshotCaptureScope) -> Result<RawScreenshot, St
                     let image = monitor
                         .capture_image()
                         .map_err(|err| format!("monitor capture failed: {err}"))?;
-                    Ok::<_, String>(MonitorCapture {
+                    let mut capture = MonitorCapture {
                         x,
                         y,
                         logical_width,
                         logical_height,
                         image,
-                    })
+                    };
+                    if let Some(bounds) = focused_bounds {
+                        mark_focused_field(&mut capture, bounds);
+                    }
+                    if cursor_highlight {
+                        mark_cursor(&mut capture, cursor_position);
+                    }
+                    Ok::<_, String>(capture)
                 }));
             }
 
@@ -304,7 +513,11 @@ fn capture_screenshot(scope: ScreenshotCaptureScope) -> Result<RawScreenshot, St
 }
 
 #[cfg(not(target_os = "macos"))]
-fn capture_screenshot(_scope: ScreenshotCaptureScope) -> Result<RawScreenshot, String> {
+fn capture_screenshot(
+    _scope: ScreenshotCaptureScope,
+    _cursor_highlight: bool,
+    _focus_highlight: bool,
+) -> Result<RawScreenshot, String> {
     Err("screenshot capture is not supported on this platform".to_string())
 }
 
@@ -345,9 +558,14 @@ impl ScreenshotContext {
 
     /// Capture the requested monitor scope and start encoding it. Failures are
     /// logged and leave no pending capture (text-only post-processing).
-    pub fn begin_capture(&self, scope: ScreenshotCaptureScope) {
+    pub fn begin_capture(
+        &self,
+        scope: ScreenshotCaptureScope,
+        cursor_highlight: bool,
+        focus_highlight: bool,
+    ) {
         let started = Instant::now();
-        let raw = match capture_screenshot(scope) {
+        let raw = match capture_screenshot(scope, cursor_highlight, focus_highlight) {
             Ok(image) => image,
             Err(err) => {
                 warn!("Screenshot context skipped: {err}");
@@ -415,6 +633,102 @@ mod tests {
 
     fn solid_image(width: u32, height: u32) -> RgbaImage {
         RgbaImage::from_pixel(width, height, Rgba([40, 120, 200, 255]))
+    }
+
+    #[test]
+    fn monitor_sidecar_roundtrip_and_legacy_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("capture.jpg");
+        let capture = CapturedScreenshot {
+            jpeg: encode_jpeg(solid_image(200, 100), MAX_EDGE).unwrap(),
+            llm_jpegs: vec![encode_jpeg(solid_image(100, 100), MAX_EDGE).unwrap(); 2],
+        };
+        capture.save_monitor_images(&path).unwrap();
+        let mut restored = CapturedScreenshot::from_jpeg(capture.jpeg.clone()).unwrap();
+        restored.load_monitor_images(&path);
+        assert_eq!(restored, capture);
+        assert_eq!(restored.history_data_urls().len(), 3);
+        assert!(restored.history_image(3).is_none());
+        std::fs::write(path.with_extension("images.json"), b"corrupt").unwrap();
+        restored.load_monitor_images(&path);
+        assert_eq!(restored.history_data_urls().len(), 1);
+        assert_eq!(restored.llm_data_urls(), vec![restored.data_url()]);
+        std::fs::remove_file(path.with_extension("images.json")).unwrap();
+        restored.load_monitor_images(&path);
+        assert_eq!(restored.history_data_urls().len(), 1);
+    }
+
+    #[test]
+    fn focused_field_clips_to_retina_monitor_without_filling_the_field() {
+        let mut monitor = MonitorCapture {
+            x: -800,
+            y: 0,
+            logical_width: 800,
+            logical_height: 600,
+            image: solid_image(1600, 1200),
+        };
+        let original = monitor.image.clone();
+        mark_focused_field(&mut monitor, (10.0, 20.0, 100.0, 100.0));
+        assert_eq!(monitor.image, original);
+        mark_focused_field(&mut monitor, (-850.0, 100.0, 200.0, 100.0));
+        assert_eq!(monitor.image.get_pixel(100, 200), &Rgba([230, 40, 70, 255]));
+        assert_eq!(
+            monitor.image.get_pixel(100, 300),
+            original.get_pixel(100, 300)
+        );
+    }
+
+    #[test]
+    fn cursor_highlight_maps_retina_and_negative_desktop_coordinates() {
+        let mut monitor = MonitorCapture {
+            x: -800,
+            y: -200,
+            logical_width: 800,
+            logical_height: 600,
+            image: solid_image(1600, 1200),
+        };
+        let original = monitor.image.clone();
+        mark_cursor(&mut monitor, (0.0, 100.0));
+        assert_eq!(monitor.image, original, "cursor on another display");
+        mark_cursor(&mut monitor, (-600.0, -50.0));
+        assert_eq!(
+            monitor.image.get_pixel(400, 300),
+            &Rgba([255, 255, 255, 255])
+        );
+        assert_eq!(
+            monitor.image.get_pixel(1200, 900),
+            original.get_pixel(1200, 900)
+        );
+    }
+
+    #[test]
+    fn cursor_highlight_survives_panorama_and_llm_encoding() {
+        let mut monitor = MonitorCapture {
+            x: 0,
+            y: 0,
+            logical_width: 800,
+            logical_height: 600,
+            image: solid_image(3200, 2400),
+        };
+        mark_cursor(&mut monitor, (400.0, 300.0));
+        let screenshot = encode_capture(RawScreenshot::Multiple(vec![monitor])).unwrap();
+        for jpeg in [&screenshot.jpeg, &screenshot.llm_jpegs[0]] {
+            let decoded = image::load_from_memory(jpeg).unwrap().to_rgb8();
+            assert!(
+                decoded
+                    .pixels()
+                    .filter(|p| p[0] < 40 && p[1] < 40 && p[2] < 40)
+                    .count()
+                    > 100
+            );
+            assert!(
+                decoded
+                    .pixels()
+                    .filter(|p| p[0] > 200 && p[1] > 200 && p[2] > 200)
+                    .count()
+                    > 50
+            );
+        }
     }
 
     #[test]

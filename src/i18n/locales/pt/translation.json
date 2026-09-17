@@ -417,6 +417,14 @@
               "currentMonitor": "Monitor atual",
               "allMonitors": "Todos os monitores"
             }
+          },
+          "cursorHighlight": {
+            "label": "Ampliar o cursor",
+            "description": "Mostra um ponteiro maior e contrastante na posição do cursor no momento da captura."
+          },
+          "focusHighlight": {
+            "label": "Contornar o campo ativo",
+            "description": "Contorna o campo de texto ativo na captura, se a Acessibilidade fornecer a posição. O destino da colagem pode mudar durante o ditado."
           }
         }
       },
@@ -490,7 +498,19 @@
         "loading": "Carregando captura de tela...",
         "unavailable": "Captura de tela indisponível.",
         "close": "Fechar",
-        "alt": "Captura de tela enviada com esta transcrição"
+        "alt": "Captura de tela enviada com esta transcrição",
+        "selectImage": "Imagem",
+        "panorama": "Panorama",
+        "monitor": "Tela {{number}}",
+        "zoomOut": "Diminuir zoom",
+        "zoomIn": "Ampliar",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Ajustar",
+        "copy": "Copiar imagem",
+        "copied": "Imagem copiada",
+        "copyFailed": "Não foi possível copiar a imagem",
+        "navigation": "Imagem: arraste para mover, + e - para zoom, 0 para ajustar"
       }
     },
     "debug": {
