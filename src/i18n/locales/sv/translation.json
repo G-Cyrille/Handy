@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Snabbkommando"
       },
+      "context": {
+        "title": "Kontext",
+        "screenshot": {
+          "label": "Skärmbildskontext",
+          "description": "Skickar visuell kontext med varje efterbehandlad transkription. Kräver behörigheten Skärminspelning.",
+          "permissionMissing": "Tillåt Handy under Systeminställningar › Integritet och säkerhet › Skärminspelning och starta sedan om Handy.",
+          "scope": {
+            "label": "Skärmar att ta med",
+            "description": "Tar en bild av skärmen under markören eller sammanfogar alla aktiva skärmar till en bild.",
+            "options": {
+              "currentMonitor": "Aktuell skärm",
+              "allMonitors": "Alla skärmar"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Förstora markören",
+            "description": "Visar en större markör med hög kontrast på markörens position vid skärmbilden."
+          },
+          "focusHighlight": {
+            "label": "Rama in aktivt textfält",
+            "description": "Ramar in det aktiva textfältet vid skärmbilden om Hjälpmedel anger positionen. Inklistringsmålet kan ändras under dikteringen."
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI-kompatibelt)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Transkribera igen",
       "retranscribeError": "Misslyckades med att transkribera igen. Försök igen.",
       "transcribing": "Transkriberar...",
-      "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök."
+      "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök.",
+      "screenshot": {
+        "view": "Visa skärmbild",
+        "title": "Skärmbild",
+        "loading": "Läser in skärmbild...",
+        "unavailable": "Skärmbilden är inte tillgänglig.",
+        "close": "Stäng",
+        "alt": "Skärmbild som skickades med den här transkriptionen",
+        "selectImage": "Bild",
+        "panorama": "Panorama",
+        "monitor": "Skärm {{number}}",
+        "zoomOut": "Zooma ut",
+        "zoomIn": "Zooma in",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Anpassa",
+        "copy": "Kopiera bild",
+        "copied": "Bild kopierad",
+        "copyFailed": "Kunde inte kopiera bilden",
+        "navigation": "Bild: dra för att flytta, + och - för zoom, 0 för anpassning"
+      }
     },
     "debug": {
       "title": "Felsökning",

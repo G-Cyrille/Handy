@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Genvejstast"
       },
+      "context": {
+        "title": "Kontekst",
+        "screenshot": {
+          "label": "Skærmbilledkontekst",
+          "description": "Sender visuel kontekst med hver efterbehandlet transskription. Kræver tilladelsen Skærmoptagelse.",
+          "permissionMissing": "Tillad Handy under Systemindstillinger › Anonymitet og sikkerhed › Skærmoptagelse, og genstart derefter Handy.",
+          "scope": {
+            "label": "Skærme, der skal optages",
+            "description": "Optager skærmen under markøren eller samler alle aktive skærme i ét billede.",
+            "options": {
+              "currentMonitor": "Aktuel skærm",
+              "allMonitors": "Alle skærme"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Forstør markøren",
+            "description": "Viser en større markør med høj kontrast på markørens position ved optagelsen."
+          },
+          "focusHighlight": {
+            "label": "Indram aktivt tekstfelt",
+            "description": "Indrammer det aktive tekstfelt ved optagelsen, hvis Tilgængelighed angiver positionen. Indsættelsesstedet kan ændres under diktering."
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI-kompatibel)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Transskribér igen",
       "retranscribeError": "Kunne ikke transskribere igen. Prøv igen.",
       "transcribing": "Transskriberer...",
-      "transcriptionFailed": "Transskription mislykkedes. Du kan transskribere igen ved hjælp af genforsøgsikonet."
+      "transcriptionFailed": "Transskription mislykkedes. Du kan transskribere igen ved hjælp af genforsøgsikonet.",
+      "screenshot": {
+        "view": "Vis skærmbillede",
+        "title": "Skærmbillede",
+        "loading": "Indlæser skærmbillede...",
+        "unavailable": "Skærmbillede ikke tilgængeligt.",
+        "close": "Luk",
+        "alt": "Skærmbillede sendt med denne transskription",
+        "selectImage": "Billede",
+        "panorama": "Panorama",
+        "monitor": "Skærm {{number}}",
+        "zoomOut": "Zoom ud",
+        "zoomIn": "Zoom ind",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Tilpas",
+        "copy": "Kopiér billede",
+        "copied": "Billede kopieret",
+        "copyFailed": "Kunne ikke kopiere billedet",
+        "navigation": "Billede: træk for at flytte, + og - for zoom, 0 for tilpasning"
+      }
     },
     "debug": {
       "title": "Fejlfinding",

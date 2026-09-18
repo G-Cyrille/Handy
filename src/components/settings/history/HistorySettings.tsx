@@ -1,7 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { Check, Copy, FolderOpen, RotateCcw, Star, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  FolderOpen,
+  Image as ImageIcon,
+  RotateCcw,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -14,6 +22,8 @@ import { useOsType } from "@/hooks/useOsType";
 import { formatDateTime } from "@/utils/dateFormat";
 import { AudioPlayer, AudioPlayerGroup } from "../../ui/AudioPlayer";
 import { Button } from "../../ui/Button";
+import { Dialog } from "../../ui/Dialog";
+import { ScreenshotLightbox } from "./ScreenshotLightbox";
 
 const IconButton: React.FC<{
   onClick: () => void;
@@ -314,8 +324,10 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   const { t, i18n } = useTranslation();
   const [showCopied, setShowCopied] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [showScreenshot, setShowScreenshot] = useState(false);
 
   const hasTranscription = entry.transcription_text.trim().length > 0;
+  const hasScreenshot = entry.screenshot_file_name !== null;
 
   const handleLoadAudio = useCallback(
     () => getAudioUrl(entry.file_name),
@@ -371,6 +383,14 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               <Copy width={16} height={16} />
             )}
           </IconButton>
+          {hasScreenshot && (
+            <IconButton
+              onClick={() => setShowScreenshot(true)}
+              title={t("settings.history.screenshot.view")}
+            >
+              <ImageIcon width={16} height={16} />
+            </IconButton>
+          )}
           <IconButton
             onClick={onToggleSaved}
             disabled={retrying}
@@ -442,6 +462,13 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
       </p>
 
       <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+
+      {showScreenshot && (
+        <ScreenshotLightbox
+          entryId={entry.id}
+          onClose={() => setShowScreenshot(false)}
+        />
+      )}
     </div>
   );
 };

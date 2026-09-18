@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "快捷键"
       },
+      "context": {
+        "title": "上下文",
+        "screenshot": {
+          "label": "截图上下文",
+          "description": "每次后处理转录时附带发送屏幕上下文。需要“屏幕录制”权限。",
+          "permissionMissing": "请在“系统设置 › 隐私与安全性 › 屏幕录制”中允许 Handy，然后重新启动 Handy。",
+          "scope": {
+            "label": "要截取的屏幕",
+            "description": "截取光标所在的显示器，或将所有活动显示器合成为一张图片。",
+            "options": {
+              "currentMonitor": "当前显示器",
+              "allMonitors": "所有显示器"
+            }
+          },
+          "cursorHighlight": {
+            "label": "放大光标",
+            "description": "在截屏时的光标位置显示更大、更醒目的指针。"
+          },
+          "focusHighlight": {
+            "label": "标出当前输入框",
+            "description": "如果辅助功能提供位置，则框出截屏时获得焦点的文本框。听写过程中粘贴目标可能发生变化。"
+          }
+        }
+      },
       "api": {
         "title": "API（兼容 OpenAI）",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "重新转录",
       "retranscribeError": "重新转录失败。请重试。",
       "transcribing": "转录中...",
-      "transcriptionFailed": "转录失败。您可以使用重试图标重新转录。"
+      "transcriptionFailed": "转录失败。您可以使用重试图标重新转录。",
+      "screenshot": {
+        "view": "查看截图",
+        "title": "截图",
+        "loading": "正在加载截图...",
+        "unavailable": "截图不可用。",
+        "close": "关闭",
+        "alt": "随此转录一起发送的截图",
+        "selectImage": "图像",
+        "panorama": "全景",
+        "monitor": "屏幕 {{number}}",
+        "zoomOut": "缩小",
+        "zoomIn": "放大",
+        "zoomLevel": "缩放",
+        "actualSize": "100%",
+        "fit": "适应窗口",
+        "copy": "复制图像",
+        "copied": "图像已复制",
+        "copyFailed": "无法复制图像",
+        "navigation": "图像：拖动平移，+ 和 - 缩放，0 适应窗口"
+      }
     },
     "debug": {
       "title": "调试",

@@ -16,6 +16,9 @@ mod memory;
 mod overlay;
 mod paste_tx;
 pub mod portable;
+mod screenshot;
+#[cfg(target_os = "macos")]
+mod screenshot_focus;
 mod secure_input;
 mod settings;
 mod shortcut;
@@ -218,6 +221,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(transcription_manager.clone());
     app_handle.manage(history_manager.clone());
     app_handle.manage(tray::TrayState::new());
+    app_handle.manage(screenshot::ScreenshotContext::new());
 
     // Note: Shortcuts are NOT initialized here.
     // The frontend is responsible for calling the `initialize_shortcuts` command
@@ -691,6 +695,10 @@ pub fn run(cli_args: CliArgs) {
             shortcut::resume_all_bindings,
             shortcut::change_mute_while_recording_setting,
             shortcut::change_append_trailing_space_setting,
+            shortcut::change_screenshot_context_enabled_setting,
+            shortcut::change_screenshot_cursor_highlight_setting,
+            shortcut::change_screenshot_focus_highlight_setting,
+            shortcut::change_screenshot_capture_scope_setting,
             shortcut::change_lazy_stream_close_setting,
             shortcut::change_vad_enabled_setting,
             shortcut::change_vad_backend_setting,
@@ -759,6 +767,8 @@ pub fn run(cli_args: CliArgs) {
             commands::history::get_history_entries,
             commands::history::toggle_history_entry_saved,
             commands::history::get_audio_file_path,
+            commands::history::get_history_screenshot,
+            commands::history::copy_history_screenshot,
             commands::history::delete_history_entry,
             commands::history::retry_history_entry_transcription,
             commands::history::update_history_limit,
@@ -772,12 +782,12 @@ pub fn run(cli_args: CliArgs) {
         ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
-    specta_builder
-        .export(
-            Typescript::default().bigint(BigIntExportBehavior::Number),
-            "../src/bindings.ts",
-        )
-        .expect("Failed to export typescript bindings");
+    if let Err(error) = specta_builder.export(
+        Typescript::default().bigint(BigIntExportBehavior::Number),
+        "../src/bindings.ts",
+    ) {
+        eprintln!("Warning: failed to export TypeScript bindings: {error}");
+    }
 
     let invoke_handler = specta_builder.invoke_handler();
 

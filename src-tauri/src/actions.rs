@@ -7,6 +7,7 @@ use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
+use crate::screenshot::{CapturedScreenshot, ScreenshotContext};
 use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID};
 use crate::shortcut;
 use crate::tray::{set_tray_state, TrayIconState};
@@ -118,7 +119,11 @@ fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool
     style == OverlayStyle::Live && is_streaming
 }
 
-async fn post_process_transcription(settings: &AppSettings, transcription: &str) -> Option<String> {
+async fn post_process_transcription(
+    settings: &AppSettings,
+    transcription: &str,
+    screenshot: Option<&CapturedScreenshot>,
+) -> Option<String> {
     if is_blank_transcription(transcription) {
         debug!("Post-processing skipped because the transcription is empty");
         return None;
@@ -196,8 +201,13 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         let system_prompt = build_system_prompt(&prompt);
         let user_content = transcription.to_string();
 
-        // Handle Apple Intelligence separately since it uses native Swift APIs
+        // Handle Apple Intelligence separately since it uses native Swift APIs.
+        // It is text-only: any screenshot context is left out of the request.
         if provider.id == APPLE_INTELLIGENCE_PROVIDER_ID {
+            if screenshot.is_some() {
+                debug!("Apple Intelligence is text-only; ignoring screenshot context");
+            }
+
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             {
                 if !apple_intelligence::check_apple_intelligence_availability() {
@@ -261,6 +271,7 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
             Some(system_prompt),
             Some(json_schema),
             disable_reasoning,
+            screenshot,
         )
         .await
         {
@@ -317,6 +328,7 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         &model,
         processed_prompt,
         disable_reasoning,
+        screenshot,
     )
     .await
     {
@@ -423,6 +435,7 @@ pub(crate) async fn process_transcription_output(
     app: &AppHandle,
     transcription: &str,
     post_process: bool,
+    screenshot: Option<&CapturedScreenshot>,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
     let mut final_text = transcription.to_string();
@@ -440,7 +453,9 @@ pub(crate) async fn process_transcription_output(
     }
 
     if post_process {
-        if let Some(processed_text) = post_process_transcription(&settings, &final_text).await {
+        if let Some(processed_text) =
+            post_process_transcription(&settings, &final_text, screenshot).await
+        {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
 
@@ -518,27 +533,8 @@ impl ShortcutAction for TranscribeAction {
         }
         let plan_elapsed = plan_started.elapsed();
 
-        // Sizing the overlay follows the same advertised capability. A model that
-        // doesn't stream (or whose capability is not known yet) gets the compact
-        // pill instead of an oversized transparent live window.
-        let overlay_started = Instant::now();
-        match settings.overlay_style {
-            OverlayStyle::Live if model_supports_streaming => utils::show_streaming_overlay(app),
-            OverlayStyle::Live | OverlayStyle::Minimal => show_recording_overlay(app),
-            OverlayStyle::None => {} // show_overlay_state no-ops on None anyway
-        }
-        // Everything above runs before capture can begin, so each span here is
-        // added keypress->capture latency.
-        debug!(
-            "start-path pre-recording steps: model_kickoff={:?} tray={:?} settings+stream_plan={:?} overlay={:?}",
-            kickoff_elapsed,
-            tray_elapsed,
-            plan_elapsed,
-            overlay_started.elapsed()
-        );
         debug!("Microphone mode - always_on: {}", is_always_on);
 
-        let mut recording_error: Option<String> = None;
         let recording_start_time = Instant::now();
         match rm.try_start_recording(&binding_id, vad_policy) {
             Ok(readiness) => {
@@ -590,22 +586,12 @@ impl ShortcutAction for TranscribeAction {
                     }
                 });
             }
-            Err(e) => {
-                debug!("Failed to start recording: {}", e);
-                recording_error = Some(e);
-            }
-        }
-
-        if recording_error.is_none() {
-            // Dynamically register the cancel shortcut in a separate task to avoid deadlock
-            shortcut::register_cancel_shortcut(app);
-        } else {
-            // Starting failed (for example due to blocked microphone permissions).
-            // Revert UI state so we don't stay stuck in the recording overlay.
-            tm.cancel_stream();
-            utils::hide_recording_overlay(app);
-            set_tray_state(app, TrayIconState::Idle);
-            if let Some(err) = recording_error {
+            Err(err) => {
+                debug!("Failed to start recording: {}", err);
+                tm.cancel_stream();
+                app.state::<ScreenshotContext>().discard();
+                utils::hide_recording_overlay(app);
+                set_tray_state(app, TrayIconState::Idle);
                 let error_type = if is_microphone_access_denied(&err) {
                     "microphone_permission_denied"
                 } else if is_no_input_device_error(&err) {
@@ -620,8 +606,49 @@ impl ShortcutAction for TranscribeAction {
                         detail: Some(err),
                     },
                 );
+                debug!(
+                    "TranscribeAction::start failed in {:?}",
+                    start_time.elapsed()
+                );
+                return;
             }
         }
+        let recording_request_elapsed = recording_start_time.elapsed();
+
+        // Register cancellation as soon as the recorder accepts the request.
+        shortcut::register_cancel_shortcut(app);
+
+        // The microphone is already recording while the screenshot is grabbed.
+        // Keep capture before the overlay so Handy never appears in its own
+        // visual context. Capture failures leave the request text-only.
+        let screenshot_started = Instant::now();
+        if self.post_process && settings.screenshot_context_enabled {
+            app.state::<ScreenshotContext>().begin_capture(
+                settings.screenshot_capture_scope,
+                settings.screenshot_cursor_highlight,
+                settings.screenshot_focus_highlight,
+            );
+        }
+        let screenshot_elapsed = screenshot_started.elapsed();
+
+        // Sizing the overlay follows the same advertised capability. A model that
+        // doesn't stream (or whose capability is not known yet) gets the compact
+        // pill instead of an oversized transparent live window.
+        let overlay_started = Instant::now();
+        match settings.overlay_style {
+            OverlayStyle::Live if model_supports_streaming => utils::show_streaming_overlay(app),
+            OverlayStyle::Live | OverlayStyle::Minimal => show_recording_overlay(app),
+            OverlayStyle::None => {} // show_overlay_state no-ops on None anyway
+        }
+        debug!(
+            "start path: model_kickoff={:?} tray={:?} settings+stream_plan={:?} recording_request={:?} screenshot_after_recording={:?} overlay={:?}",
+            kickoff_elapsed,
+            tray_elapsed,
+            plan_elapsed,
+            recording_request_elapsed,
+            screenshot_elapsed,
+            overlay_started.elapsed()
+        );
 
         debug!(
             "TranscribeAction::start completed in {:?}",
@@ -670,6 +697,9 @@ impl ShortcutAction for TranscribeAction {
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
         let post_process = self.post_process;
         let cancel_generation = rm.cancel_generation();
+        // Own the screenshot from here on: the context is empty again, and the
+        // bytes are dropped with this task if the dictation doesn't get saved.
+        let pending_screenshot = app.state::<ScreenshotContext>().take_pending();
 
         tauri::async_runtime::spawn(async move {
             let _guard = FinishGuard(ah.clone());
@@ -759,6 +789,20 @@ impl ShortcutAction for TranscribeAction {
                         return;
                     }
 
+                    // Encoding normally finished long before the user stopped
+                    // talking; join it off the async runtime just in case.
+                    let screenshot = match pending_screenshot {
+                        Some(pending) if post_process => {
+                            tauri::async_runtime::spawn_blocking(move || pending.wait())
+                                .await
+                                .unwrap_or_else(|e| {
+                                    error!("Screenshot wait task panicked: {}", e);
+                                    None
+                                })
+                        }
+                        _ => None,
+                    };
+
                     match transcription_result {
                         Ok(transcription) => {
                             debug!(
@@ -775,7 +819,12 @@ impl ShortcutAction for TranscribeAction {
                                 }
                             }
                             let Some(processed) = complete_unless_cancelled(
-                                process_transcription_output(&ah, &transcription, post_process),
+                                process_transcription_output(
+                                    &ah,
+                                    &transcription,
+                                    post_process,
+                                    screenshot.as_ref(),
+                                ),
                                 || rm.was_cancelled_since(cancel_generation),
                             )
                             .await
@@ -801,6 +850,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
+                                    screenshot.as_ref(),
                                 ) {
                                     error!("Failed to save history entry: {}", err);
                                 }
@@ -856,7 +906,8 @@ impl ShortcutAction for TranscribeAction {
                             // Surface the failure to the UI (toast). The full
                             // message is also in handy.log via the line above.
                             let _ = ah.emit("transcription-error", err.to_string());
-                            // Save entry with empty text so user can retry
+                            // Save entry with empty text so the user can retry
+                            // with the same visual context.
                             if wav_saved {
                                 if let Err(save_err) = hm.save_entry(
                                     file_name,
@@ -864,6 +915,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     None,
                                     None,
+                                    screenshot.as_ref(),
                                 ) {
                                     error!("Failed to save failed history entry: {}", save_err);
                                 }

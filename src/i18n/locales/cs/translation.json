@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Klávesová zkratka"
       },
+      "context": {
+        "title": "Kontext",
+        "screenshot": {
+          "label": "Kontext snímku obrazovky",
+          "description": "S každým dodatečně zpracovaným přepisem odešle vizuální kontext. Vyžaduje oprávnění Nahrávání obrazovky.",
+          "permissionMissing": "Povolte Handy v Nastavení systému › Soukromí a zabezpečení › Nahrávání obrazovky a poté Handy restartujte.",
+          "scope": {
+            "label": "Obrazovky k zachycení",
+            "description": "Zachytí monitor pod kurzorem nebo spojí všechny aktivní monitory do jednoho obrázku.",
+            "options": {
+              "currentMonitor": "Aktuální monitor",
+              "allMonitors": "Všechny monitory"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Zvětšit kurzor",
+            "description": "Zobrazí větší kontrastní ukazatel na pozici kurzoru při pořízení snímku."
+          },
+          "focusHighlight": {
+            "label": "Orámovat aktivní pole",
+            "description": "Orámuje aktivní textové pole při snímku, pokud Zpřístupnění poskytne jeho polohu. Cíl vložení se během diktování může změnit."
+          }
+        }
+      },
       "api": {
         "title": "API (kompatibilní s OpenAI)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Přepsat znovu",
       "retranscribeError": "Opětovný přepis se nezdařil. Zkuste to prosím znovu.",
       "transcribing": "Přepisuji...",
-      "transcriptionFailed": "Přepis selhal. Můžete zkusit přepis znovu pomocí ikony opakování."
+      "transcriptionFailed": "Přepis selhal. Můžete zkusit přepis znovu pomocí ikony opakování.",
+      "screenshot": {
+        "view": "Zobrazit snímek obrazovky",
+        "title": "Snímek obrazovky",
+        "loading": "Načítání snímku obrazovky...",
+        "unavailable": "Snímek obrazovky není k dispozici.",
+        "close": "Zavřít",
+        "alt": "Snímek obrazovky odeslaný s tímto přepisem",
+        "selectImage": "Obrázek",
+        "panorama": "Panorama",
+        "monitor": "Obrazovka {{number}}",
+        "zoomOut": "Oddálit",
+        "zoomIn": "Přiblížit",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Přizpůsobit",
+        "copy": "Kopírovat obrázek",
+        "copied": "Obrázek zkopírován",
+        "copyFailed": "Obrázek nelze zkopírovat",
+        "navigation": "Obrázek: přetažením posun, + a - přiblížení, 0 přizpůsobení"
+      }
     },
     "debug": {
       "title": "Ladění",

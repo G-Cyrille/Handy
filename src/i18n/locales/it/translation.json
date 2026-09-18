@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Tasto di scelta rapida"
       },
+      "context": {
+        "title": "Contesto",
+        "screenshot": {
+          "label": "Contesto screenshot",
+          "description": "Invia il contesto visivo con ogni trascrizione post-elaborata. Richiede il permesso di Registrazione schermo.",
+          "permissionMissing": "Consenti Handy in Impostazioni di Sistema › Privacy e sicurezza › Registrazione schermo, poi riavvia Handy.",
+          "scope": {
+            "label": "Schermi da acquisire",
+            "description": "Acquisisce il monitor sotto il cursore o combina tutti i monitor attivi in un'unica immagine.",
+            "options": {
+              "currentMonitor": "Monitor attuale",
+              "allMonitors": "Tutti i monitor"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Ingrandisci il cursore",
+            "description": "Mostra un puntatore più grande e contrastato nella posizione del cursore al momento della cattura."
+          },
+          "focusHighlight": {
+            "label": "Evidenzia il campo attivo",
+            "description": "Contorna il campo di testo attivo alla cattura, se Accessibilità ne fornisce la posizione. La destinazione può cambiare durante la dettatura."
+          }
+        }
+      },
       "api": {
         "title": "API (Compatibile con OpenAI)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Ri-trascrivere",
       "retranscribeError": "Impossibile ri-trascrivere. Riprova.",
       "transcribing": "Trascrizione in corso...",
-      "transcriptionFailed": "Trascrizione fallita. Puoi ri-trascrivere usando l'icona di ripetizione."
+      "transcriptionFailed": "Trascrizione fallita. Puoi ri-trascrivere usando l'icona di ripetizione.",
+      "screenshot": {
+        "view": "Mostra screenshot",
+        "title": "Screenshot",
+        "loading": "Caricamento screenshot...",
+        "unavailable": "Screenshot non disponibile.",
+        "close": "Chiudi",
+        "alt": "Screenshot inviato con questa trascrizione",
+        "selectImage": "Immagine",
+        "panorama": "Panorama",
+        "monitor": "Schermo {{number}}",
+        "zoomOut": "Riduci",
+        "zoomIn": "Ingrandisci",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Adatta",
+        "copy": "Copia immagine",
+        "copied": "Immagine copiata",
+        "copyFailed": "Impossibile copiare l’immagine",
+        "navigation": "Immagine: trascina per spostare, + e - per zoom, 0 per adattare"
+      }
     },
     "debug": {
       "title": "Debug",

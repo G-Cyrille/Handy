@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Drecera de teclat"
       },
+      "context": {
+        "title": "Context",
+        "screenshot": {
+          "label": "Context de captura de pantalla",
+          "description": "Envia context visual amb cada transcripció postprocessada. Requereix el permís d'Enregistrament de pantalla.",
+          "permissionMissing": "Permet Handy a Configuració del Sistema › Privadesa i seguretat › Enregistrament de pantalla i després reinicia Handy.",
+          "scope": {
+            "label": "Pantalles per capturar",
+            "description": "Captura el monitor sota el cursor o combina tots els monitors actius en una sola imatge.",
+            "options": {
+              "currentMonitor": "Monitor actual",
+              "allMonitors": "Tots els monitors"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Amplia el cursor",
+            "description": "Mostra un punter més gran i contrastat a la posició del cursor en capturar."
+          },
+          "focusHighlight": {
+            "label": "Emmarca el camp actiu",
+            "description": "Emmarca el camp de text actiu en capturar si Accessibilitat en proporciona la posició. La destinació d’enganxat pot canviar durant el dictat."
+          }
+        }
+      },
       "api": {
         "title": "API (compatible amb OpenAI)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Torneu a transcriure",
       "retranscribeError": "No s'ha pogut tornar a transcriure. Torneu-ho a provar.",
       "transcribing": "S'està transcrivint...",
-      "transcriptionFailed": "La transcripció ha fallat. Podeu tornar a transcriure amb la icona de reintent."
+      "transcriptionFailed": "La transcripció ha fallat. Podeu tornar a transcriure amb la icona de reintent.",
+      "screenshot": {
+        "view": "Mostra la captura de pantalla",
+        "title": "Captura de pantalla",
+        "loading": "S'està carregant la captura de pantalla...",
+        "unavailable": "Captura de pantalla no disponible.",
+        "close": "Tanca",
+        "alt": "Captura de pantalla enviada amb aquesta transcripció",
+        "selectImage": "Imatge",
+        "panorama": "Panorama",
+        "monitor": "Pantalla {{number}}",
+        "zoomOut": "Allunya",
+        "zoomIn": "Apropa",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Ajusta",
+        "copy": "Copia la imatge",
+        "copied": "Imatge copiada",
+        "copyFailed": "No s’ha pogut copiar la imatge",
+        "navigation": "Imatge: arrossega per moure, + i - per al zoom, 0 per ajustar"
+      }
     },
     "debug": {
       "title": "Depuració",

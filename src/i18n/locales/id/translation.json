@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Pintasan"
       },
+      "context": {
+        "title": "Konteks",
+        "screenshot": {
+          "label": "Konteks tangkapan layar",
+          "description": "Mengirim konteks visual bersama setiap transkripsi yang dipascaproses. Memerlukan izin Perekaman Layar.",
+          "permissionMissing": "Izinkan Handy di Pengaturan Sistem › Privasi & Keamanan › Perekaman Layar, lalu mulai ulang Handy.",
+          "scope": {
+            "label": "Layar yang ditangkap",
+            "description": "Menangkap monitor di bawah kursor atau menggabungkan semua monitor aktif menjadi satu gambar.",
+            "options": {
+              "currentMonitor": "Monitor saat ini",
+              "allMonitors": "Semua monitor"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Perbesar kursor",
+            "description": "Tampilkan penunjuk yang lebih besar dan kontras pada posisi kursor saat ditangkap."
+          },
+          "focusHighlight": {
+            "label": "Bingkai kolom aktif",
+            "description": "Bingkai kolom teks aktif saat ditangkap jika Aksesibilitas memberikan posisinya. Tujuan tempel dapat berubah selama dikte."
+          }
+        }
+      },
       "api": {
         "title": "API (Kompatibel dengan OpenAI)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Transkripsikan ulang",
       "retranscribeError": "Gagal mentranskripsikan ulang. Silakan coba lagi.",
       "transcribing": "Mentranskripsikan...",
-      "transcriptionFailed": "Transkripsi gagal. Anda dapat mentranskripsikan ulang menggunakan ikon coba lagi."
+      "transcriptionFailed": "Transkripsi gagal. Anda dapat mentranskripsikan ulang menggunakan ikon coba lagi.",
+      "screenshot": {
+        "view": "Lihat tangkapan layar",
+        "title": "Tangkapan layar",
+        "loading": "Memuat tangkapan layar...",
+        "unavailable": "Tangkapan layar tidak tersedia.",
+        "close": "Tutup",
+        "alt": "Tangkapan layar yang dikirim bersama transkripsi ini",
+        "selectImage": "Gambar",
+        "panorama": "Panorama",
+        "monitor": "Layar {{number}}",
+        "zoomOut": "Perkecil",
+        "zoomIn": "Perbesar",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Sesuaikan",
+        "copy": "Salin gambar",
+        "copied": "Gambar disalin",
+        "copyFailed": "Tidak dapat menyalin gambar",
+        "navigation": "Gambar: seret untuk menggeser, + dan - untuk zoom, 0 untuk menyesuaikan"
+      }
     },
     "debug": {
       "title": "Debug",

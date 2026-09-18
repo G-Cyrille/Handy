@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "ショートカット"
       },
+      "context": {
+        "title": "コンテキスト",
+        "screenshot": {
+          "label": "スクリーンショットのコンテキスト",
+          "description": "後処理付きの文字起こしごとに画面のコンテキストを送信します。画面収録の許可が必要です。",
+          "permissionMissing": "システム設定 › プライバシーとセキュリティ › 画面収録で Handy を許可し、Handy を再起動してください。",
+          "scope": {
+            "label": "キャプチャする画面",
+            "description": "カーソル下のモニターをキャプチャするか、すべてのアクティブなモニターを1枚の画像にまとめます。",
+            "options": {
+              "currentMonitor": "現在のモニター",
+              "allMonitors": "すべてのモニター"
+            }
+          },
+          "cursorHighlight": {
+            "label": "カーソルを拡大",
+            "description": "撮影時のカーソル位置に、大きく見やすいポインターを表示します。"
+          },
+          "focusHighlight": {
+            "label": "入力中の欄を囲む",
+            "description": "アクセシビリティで位置を取得できる場合、撮影時にフォーカスされている入力欄を囲みます。音声入力中に貼り付け先が変わることがあります。"
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI 互換)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "再文字起こし",
       "retranscribeError": "再文字起こしに失敗しました。もう一度お試しください。",
       "transcribing": "文字起こし中…",
-      "transcriptionFailed": "文字起こしに失敗しました。リトライアイコンを使用して再文字起こしできます。"
+      "transcriptionFailed": "文字起こしに失敗しました。リトライアイコンを使用して再文字起こしできます。",
+      "screenshot": {
+        "view": "スクリーンショットを表示",
+        "title": "スクリーンショット",
+        "loading": "スクリーンショットを読み込み中...",
+        "unavailable": "スクリーンショットを利用できません。",
+        "close": "閉じる",
+        "alt": "この文字起こしと一緒に送信されたスクリーンショット",
+        "selectImage": "画像",
+        "panorama": "パノラマ",
+        "monitor": "画面 {{number}}",
+        "zoomOut": "縮小",
+        "zoomIn": "拡大",
+        "zoomLevel": "ズーム",
+        "actualSize": "100%",
+        "fit": "全体表示",
+        "copy": "画像をコピー",
+        "copied": "画像をコピーしました",
+        "copyFailed": "画像をコピーできませんでした",
+        "navigation": "画像：ドラッグで移動、+と-でズーム、0で全体表示"
+      }
     },
     "debug": {
       "title": "デバッグ",

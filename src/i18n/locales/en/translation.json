@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Hotkey"
       },
+      "context": {
+        "title": "Context",
+        "screenshot": {
+          "label": "Screenshot context",
+          "description": "Send screen context with each post-processed transcription. Requires Screen Recording permission.",
+          "permissionMissing": "Allow Handy under System Settings › Privacy & Security › Screen Recording, then restart Handy.",
+          "scope": {
+            "label": "Screens to capture",
+            "description": "Capture the monitor under your cursor or compose every active monitor into one image.",
+            "options": {
+              "currentMonitor": "Current monitor",
+              "allMonitors": "All monitors"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Enlarge cursor",
+            "description": "Show a larger, high-contrast pointer at the cursor position when captured."
+          },
+          "focusHighlight": {
+            "label": "Outline focused text field",
+            "description": "Outline the text field focused at capture time, when Accessibility provides its position. The paste destination can change during dictation."
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI Compatible)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Re-transcribe",
       "retranscribeError": "Failed to re-transcribe. Please try again.",
       "transcribing": "Transcribing...",
-      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon."
+      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon.",
+      "screenshot": {
+        "view": "View screenshot",
+        "title": "Screenshot",
+        "loading": "Loading screenshot...",
+        "unavailable": "Screenshot unavailable.",
+        "close": "Close",
+        "alt": "Screenshot sent with this transcription",
+        "selectImage": "Image",
+        "panorama": "Panorama",
+        "monitor": "Screen {{number}}",
+        "zoomOut": "Zoom out",
+        "zoomIn": "Zoom in",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Fit",
+        "copy": "Copy image",
+        "copied": "Image copied",
+        "copyFailed": "Could not copy image",
+        "navigation": "Image: drag to pan, use + and - to zoom, 0 to fit"
+      }
     },
     "debug": {
       "title": "Debug",

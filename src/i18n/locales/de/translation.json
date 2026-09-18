@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Tastenkürzel"
       },
+      "context": {
+        "title": "Kontext",
+        "screenshot": {
+          "label": "Screenshot-Kontext",
+          "description": "Sendet mit jeder nachbearbeiteten Transkription visuellen Kontext. Erfordert die Berechtigung „Bildschirmaufnahme“.",
+          "permissionMissing": "Erlaube Handy unter Systemeinstellungen › Datenschutz & Sicherheit › Bildschirmaufnahme und starte Handy anschließend neu.",
+          "scope": {
+            "label": "Aufzunehmende Bildschirme",
+            "description": "Nimmt den Bildschirm unter dem Cursor auf oder fügt alle aktiven Bildschirme zu einem Bild zusammen.",
+            "options": {
+              "currentMonitor": "Aktueller Bildschirm",
+              "allMonitors": "Alle Bildschirme"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Cursor vergrößern",
+            "description": "Zeigt einen größeren, kontrastreichen Zeiger an der Cursorposition zum Aufnahmezeitpunkt."
+          },
+          "focusHighlight": {
+            "label": "Aktives Textfeld umranden",
+            "description": "Umrandet das bei der Aufnahme aktive Textfeld, sofern die Bedienungshilfen seine Position liefern. Das Einfügeziel kann sich während des Diktats ändern."
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI-kompatibel)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Erneut transkribieren",
       "retranscribeError": "Erneute Transkription fehlgeschlagen. Bitte versuche es erneut.",
       "transcribing": "Transkribiere...",
-      "transcriptionFailed": "Transkription fehlgeschlagen. Du kannst über das Wiederholen-Symbol erneut transkribieren."
+      "transcriptionFailed": "Transkription fehlgeschlagen. Du kannst über das Wiederholen-Symbol erneut transkribieren.",
+      "screenshot": {
+        "view": "Screenshot anzeigen",
+        "title": "Screenshot",
+        "loading": "Screenshot wird geladen...",
+        "unavailable": "Screenshot nicht verfügbar.",
+        "close": "Schließen",
+        "alt": "Mit dieser Transkription gesendeter Screenshot",
+        "selectImage": "Bild",
+        "panorama": "Panorama",
+        "monitor": "Bildschirm {{number}}",
+        "zoomOut": "Verkleinern",
+        "zoomIn": "Vergrößern",
+        "zoomLevel": "Zoom",
+        "actualSize": "100 %",
+        "fit": "Einpassen",
+        "copy": "Bild kopieren",
+        "copied": "Bild kopiert",
+        "copyFailed": "Bild konnte nicht kopiert werden",
+        "navigation": "Bild: Ziehen zum Verschieben, + und - zum Zoomen, 0 zum Einpassen"
+      }
     },
     "debug": {
       "title": "Debug",

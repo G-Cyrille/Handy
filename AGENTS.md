@@ -69,6 +69,7 @@ Handy is a cross-platform desktop speech-to-text application built with Tauri 2.
 - `shortcut.rs` - Global keyboard shortcut handling
 - `settings.rs` - Application settings management
 - `overlay.rs` - Recording overlay window (platform-specific)
+- `screenshot.rs` - Optional screenshot context for AI post-processing (macOS capture, portable resize/encode)
 - `signal_handle.rs` - `send_transcription_input()` reusable function
 - `utils.rs` - Platform detection helpers
 
@@ -216,3 +217,72 @@ See the [Troubleshooting](README.md#troubleshooting) section in README.md.
 - **Full contributor workflow:** [CONTRIBUTING.md](CONTRIBUTING.md).
 
 **Commits:** Use conventional commit prefixes (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Focus the message on _why_, not _what_.
+
+## Fork integration workflow
+
+This checkout uses three kinds of branches:
+
+- `main` mirrors `upstream/main`. Keep feature commits off it and update it only
+  with a fast-forward from upstream.
+- `feat/*`, `fix/*`, and `refactor/*` branches contain isolated changes that can
+  be reviewed or proposed upstream independently.
+- `personal/main` combines the completed fork-only branches into the locally
+  runnable version. Do not develop directly on it.
+
+Do not stack unrelated feature branches. Start each independent change from an
+up-to-date `main`. Stack branches only when the child feature has a real code
+dependency on its parent, and record that dependency in the handoff.
+
+### Dedicated integration worktree
+
+Keep `personal/main` checked out in the sibling worktree
+`../HandyFork-personal`. This leaves the primary `HandyFork` worktree available
+for feature development while the combined application remains ready to build.
+
+Create the integration worktree only if it does not already exist:
+
+```bash
+git branch personal/main main
+git worktree add ../HandyFork-personal personal/main
+```
+
+### Refresh and integrate
+
+Before integrating a feature, update the primary checkout and preserve any user
+work:
+
+```bash
+git status --short --branch
+git fetch origin --prune
+git fetch upstream --prune
+git switch main
+git merge --ff-only upstream/main
+```
+
+Then update the integration worktree and merge each completed feature with a
+merge commit. Never push `personal/main` unless Cyrille explicitly asks for it.
+
+```bash
+git -C ../HandyFork-personal merge --ff-only main
+git -C ../HandyFork-personal merge --no-ff feat/example
+```
+
+Repeated merges pick up only the new commits added to a feature branch. Resolve
+conflicts caused by the combination on `personal/main`. If the conflict exposes
+a bug in a standalone feature, fix it on that feature branch first, then merge
+it again.
+
+### Build the combined application
+
+Install dependencies and build from the integration worktree so the output
+contains every branch merged into `personal/main`:
+
+```bash
+cd ../HandyFork-personal
+bun install
+bun run tauri build
+```
+
+The ignored `src-tauri/tauri.screenshot-test.conf.json` file is worktree-local.
+Copy it into the integration worktree before using the packaged macOS screenshot
+test build. Preserve its bundle identifier and Apple Development signing values.

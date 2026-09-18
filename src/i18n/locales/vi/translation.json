@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Phím tắt"
       },
+      "context": {
+        "title": "Ngữ cảnh",
+        "screenshot": {
+          "label": "Ngữ cảnh ảnh chụp màn hình",
+          "description": "Gửi ngữ cảnh màn hình cùng mỗi bản chép lời được xử lý hậu kỳ. Cần quyền Ghi màn hình.",
+          "permissionMissing": "Cho phép Handy trong Cài đặt hệ thống › Quyền riêng tư & Bảo mật › Ghi màn hình, sau đó khởi động lại Handy.",
+          "scope": {
+            "label": "Màn hình cần chụp",
+            "description": "Chụp màn hình dưới con trỏ hoặc ghép tất cả màn hình đang hoạt động thành một ảnh.",
+            "options": {
+              "currentMonitor": "Màn hình hiện tại",
+              "allMonitors": "Tất cả màn hình"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Phóng to con trỏ",
+            "description": "Hiển thị con trỏ lớn, tương phản cao tại vị trí con trỏ khi chụp."
+          },
+          "focusHighlight": {
+            "label": "Viền ô nhập đang chọn",
+            "description": "Viền ô văn bản đang chọn lúc chụp nếu Trợ năng cung cấp vị trí. Đích dán có thể thay đổi trong khi đọc chính tả."
+          }
+        }
+      },
       "api": {
         "title": "API (Tương thích OpenAI)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Phiên âm lại",
       "retranscribeError": "Không thể phiên âm lại. Vui lòng thử lại.",
       "transcribing": "Đang phiên âm...",
-      "transcriptionFailed": "Phiên âm thất bại. Bạn có thể phiên âm lại bằng biểu tượng thử lại."
+      "transcriptionFailed": "Phiên âm thất bại. Bạn có thể phiên âm lại bằng biểu tượng thử lại.",
+      "screenshot": {
+        "view": "Xem ảnh chụp màn hình",
+        "title": "Ảnh chụp màn hình",
+        "loading": "Đang tải ảnh chụp màn hình...",
+        "unavailable": "Ảnh chụp màn hình không khả dụng.",
+        "close": "Đóng",
+        "alt": "Ảnh chụp màn hình được gửi cùng bản chép lời này",
+        "selectImage": "Hình ảnh",
+        "panorama": "Toàn cảnh",
+        "monitor": "Màn hình {{number}}",
+        "zoomOut": "Thu nhỏ",
+        "zoomIn": "Phóng to",
+        "zoomLevel": "Thu phóng",
+        "actualSize": "100%",
+        "fit": "Vừa khung",
+        "copy": "Sao chép ảnh",
+        "copied": "Đã sao chép ảnh",
+        "copyFailed": "Không thể sao chép ảnh",
+        "navigation": "Hình ảnh: kéo để di chuyển, + và - để thu phóng, 0 để vừa khung"
+      }
     },
     "debug": {
       "title": "Gỡ lỗi",

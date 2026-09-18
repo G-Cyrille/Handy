@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Tecla de atalho"
       },
+      "context": {
+        "title": "Contexto",
+        "screenshot": {
+          "label": "Contexto de captura de tela",
+          "description": "Envia contexto visual com cada transcrição pós-processada. Requer a permissão de Gravação de Tela.",
+          "permissionMissing": "Permita o Handy em Ajustes do Sistema › Privacidade e Segurança › Gravação de Tela e reinicie o Handy.",
+          "scope": {
+            "label": "Telas a capturar",
+            "description": "Captura o monitor sob o cursor ou combina todos os monitores ativos em uma única imagem.",
+            "options": {
+              "currentMonitor": "Monitor atual",
+              "allMonitors": "Todos os monitores"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Ampliar o cursor",
+            "description": "Mostra um ponteiro maior e contrastante na posição do cursor no momento da captura."
+          },
+          "focusHighlight": {
+            "label": "Contornar o campo ativo",
+            "description": "Contorna o campo de texto ativo na captura, se a Acessibilidade fornecer a posição. O destino da colagem pode mudar durante o ditado."
+          }
+        }
+      },
       "api": {
         "title": "API (Compatível com OpenAI)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Re-transcrever",
       "retranscribeError": "Falha ao re-transcrever. Por favor, tente novamente.",
       "transcribing": "Transcrevendo...",
-      "transcriptionFailed": "A transcrição falhou. Você pode re-transcrever usando o ícone de tentar novamente."
+      "transcriptionFailed": "A transcrição falhou. Você pode re-transcrever usando o ícone de tentar novamente.",
+      "screenshot": {
+        "view": "Ver captura de tela",
+        "title": "Captura de tela",
+        "loading": "Carregando captura de tela...",
+        "unavailable": "Captura de tela indisponível.",
+        "close": "Fechar",
+        "alt": "Captura de tela enviada com esta transcrição",
+        "selectImage": "Imagem",
+        "panorama": "Panorama",
+        "monitor": "Tela {{number}}",
+        "zoomOut": "Diminuir zoom",
+        "zoomIn": "Ampliar",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Ajustar",
+        "copy": "Copiar imagem",
+        "copied": "Imagem copiada",
+        "copyFailed": "Não foi possível copiar a imagem",
+        "navigation": "Imagem: arraste para mover, + e - para zoom, 0 para ajustar"
+      }
     },
     "debug": {
       "title": "Depuração",

@@ -87,6 +87,10 @@ specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 tauri-plugin-dialog = "2.6"
+base64 = "0.22"
+# Screenshot context for AI post-processing (see screenshot.rs): the captured
+# monitor is downscaled and JPEG-encoded before it is sent to the LLM.
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
 hf-hub = { git = "https://github.com/cjpais/hf-hub", branch = "cancellable-downloads", features = [
   "tokio",
 ] }
@@ -159,6 +163,16 @@ objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = "0.3"
 objc2-service-management = "0.3.2"
+# Screenshot context capture (see screenshot.rs): xcap grabs the monitor under
+# the cursor or all active monitors; objc2-core-graphics reads the cursor
+# position and the Screen Recording permission state. Versions track what
+# xcap/Tauri already pull in.
+xcap = { version = "0.9", default-features = false }
+objc2-core-graphics = { version = "0.3", default-features = false, features = [
+  "CGEvent",
+  "CGEventTypes",
+  "CGWindow",
+] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk-layer-shell = { version = "0.8", features = ["v0_6"] }

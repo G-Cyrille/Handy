@@ -404,6 +404,30 @@
       "hotkey": {
         "title": "Sneltoets"
       },
+      "context": {
+        "title": "Context",
+        "screenshot": {
+          "label": "Schermafbeeldingscontext",
+          "description": "Stuurt visuele context mee met elke nabewerkte transcriptie. Vereist de toestemming Schermopname.",
+          "permissionMissing": "Sta Handy toe onder Systeeminstellingen › Privacy en beveiliging › Schermopname en herstart Handy daarna.",
+          "scope": {
+            "label": "Schermen vastleggen",
+            "description": "Legt het scherm onder de cursor vast of voegt alle actieve schermen samen tot één afbeelding.",
+            "options": {
+              "currentMonitor": "Huidig scherm",
+              "allMonitors": "Alle schermen"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Cursor vergroten",
+            "description": "Toont een grotere, contrastrijke aanwijzer op de cursorpositie tijdens de opname."
+          },
+          "focusHighlight": {
+            "label": "Actief tekstveld omlijnen",
+            "description": "Omlijnt het actieve tekstveld bij de opname als Toegankelijkheid de positie geeft. Het plakdoel kan tijdens het dicteren veranderen."
+          }
+        }
+      },
       "api": {
         "title": "API (OpenAI-compatibel)",
         "provider": {
@@ -467,7 +491,27 @@
       "retranscribe": "Opnieuw transcriberen",
       "retranscribeError": "Opnieuw transcriberen mislukt. Probeer het opnieuw.",
       "transcribing": "Transcriberen...",
-      "transcriptionFailed": "Transcriptie mislukt. Je kunt het opnieuw proberen via het herlaad-pictogram."
+      "transcriptionFailed": "Transcriptie mislukt. Je kunt het opnieuw proberen via het herlaad-pictogram.",
+      "screenshot": {
+        "view": "Schermafbeelding bekijken",
+        "title": "Schermafbeelding",
+        "loading": "Schermafbeelding laden...",
+        "unavailable": "Schermafbeelding niet beschikbaar.",
+        "close": "Sluiten",
+        "alt": "Schermafbeelding verzonden met deze transcriptie",
+        "selectImage": "Afbeelding",
+        "panorama": "Panorama",
+        "monitor": "Scherm {{number}}",
+        "zoomOut": "Uitzoomen",
+        "zoomIn": "Inzoomen",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Passend",
+        "copy": "Afbeelding kopiëren",
+        "copied": "Afbeelding gekopieerd",
+        "copyFailed": "Kopiëren mislukt",
+        "navigation": "Afbeelding: sleep om te bewegen, + en - om te zoomen, 0 voor passend"
+      }
     },
     "debug": {
       "title": "Probleemoplossing",
