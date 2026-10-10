@@ -54,6 +54,8 @@ struct CatalogModel {
     accuracy_score: Option<f32>,
     files: Vec<QuantFile>,
     default_quant: Option<String>,
+    #[serde(default)]
+    additional_quants: Vec<String>,
     recommended_rank: Option<u32>,
     /// Part of the small curated onboarding set (badged "Recommended"). Distinct
     /// from `recommended_rank`, which only orders the full list.
@@ -103,6 +105,7 @@ impl From<&CatalogModel> for ModelDescriptor {
             },
             files: m.files.clone(),
             default_quant: m.default_quant.clone(),
+            additional_quants: m.additional_quants.clone(),
             // catalog scores are 0–100; ModelInfo / the UI bars use 0.0–1.0.
             speed_score: m.speed_score.unwrap_or(0.0) / 100.0,
             accuracy_score: m.accuracy_score.unwrap_or(0.0) / 100.0,
@@ -196,12 +199,19 @@ pub fn file_in_catalog(
     })
 }
 
-/// Editorial recommended rank keyed by descriptor id (the same id the model
-/// registry uses). Built once from the catalog.
+/// Editorial rank for each curated download, so a model's quantizations sort
+/// together. Built once from the catalog.
 static RANK_BY_ID: Lazy<HashMap<String, u32>> = Lazy::new(|| {
     CATALOG
         .iter()
-        .filter_map(|d| d.recommended_rank.map(|r| (d.id.clone(), r)))
+        .flat_map(|d| {
+            d.downloadable_files().filter_map(|file| {
+                d.recommended_rank.map(|rank| {
+                    let model = d.to_model_info_for_file(file, &Default::default());
+                    (model.id, rank)
+                })
+            })
+        })
         .collect()
 });
 
