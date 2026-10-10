@@ -200,6 +200,7 @@
         {"filename": "Voxtral-Mini-4B-Realtime-2602-F16.gguf", "quant": "F16", "size_bytes": 8879114528, "sha256": "243258ae0ad80f748b18cfd9c8141998157d74eb32fbb131ba8f69e0c01564d7"}
       ],
       "default_quant": "Q5_K_M",
+      "additional_quants": ["Q4_K_M"],
       "recommended": false,
       "recommended_rank": 6
     },
