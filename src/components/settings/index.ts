@@ -27,6 +27,7 @@ export { PostProcessingSettingsApi } from "./PostProcessingSettingsApi";
 export { PostProcessingSettingsPrompts } from "./PostProcessingSettingsPrompts";
 export { ScreenshotContextToggle } from "./ScreenshotContextToggle";
 export { FillerWordRemoval } from "./FillerWordRemoval";
+export { ChineseScriptSetting } from "./ChineseScript";
 export { AppDataDirectory } from "./AppDataDirectory";
 export { ModelUnloadTimeoutSetting } from "./ModelUnloadTimeout";
 export { StartHidden } from "./StartHidden";

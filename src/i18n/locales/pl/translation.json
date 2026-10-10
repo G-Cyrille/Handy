@@ -398,6 +398,15 @@
       "fillerWordRemoval": {
         "title": "Usuń wyrazy wypełniające",
         "description": "Usuwa typowe słowa wyrażające wahanie z transkrypcji. Wyłącz, aby je zachować."
+      },
+      "chineseScript": {
+        "title": "Pismo chińskie",
+        "description": "Zapisuje transkrypcje w języku mandaryńskim i kantońskim znakami uproszczonymi lub tradycyjnymi. Inne języki pozostają bez zmian.",
+        "options": {
+          "asTranscribed": "Jak w transkrypcji",
+          "simplified": "Uproszczone",
+          "traditional": "Tradycyjne"
+        }
       }
     },
     "postProcessing": {
@@ -484,6 +493,7 @@
       "loading": "Wczytywanie historii...",
       "empty": "Brak transkrypcji. Rozpocznij nagrywanie, aby zbudować historię!",
       "copyToClipboard": "Kopiuj transkrypcję do schowka",
+      "copyError": "Nie udało się skopiować transkrypcji do schowka.",
       "save": "Zapisz transkrypcję",
       "unsave": "Usuń z zapisanych",
       "delete": "Usuń wpis",
@@ -742,7 +752,8 @@
   },
   "overlay": {
     "transcribing": "Transkrypcja...",
-    "processing": "Przetwarzanie..."
+    "processing": "Przetwarzanie...",
+    "loadingModel": "Wczytywanie modelu..."
   },
   "whatsNew": {
     "title": "Nowości w Handy v{{version}}"
