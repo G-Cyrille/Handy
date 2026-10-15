@@ -1,23 +1,30 @@
 # Réunions V1 : validation du 15 octobre 2026
 
-**Version de code : `666f00cbfb5b590f8aedf75de1beff2b262984cd`, branche `feat/meetings-v1`.**
+**Version de code testée : `db6d3f5`, branche `feat/meetings-v1`.**
 Backend : `2c1bc1c`. Aucune modification de `personal/main`, aucun push.
 Base : `4150a4a`, `main` sans divergence avec `upstream/main` lors du dernier contrôle.
 
 **Verdict provisoire : capture et transcription natives vérifiées pour un essai
-court. L’endurance de quatre heures a échoué et demande un correctif de capture.**
+court. Après deux essais interrompus et un correctif, une nouvelle endurance
+de quatre heures est en cours ; elle n’est pas encore validée.**
 Les suggestions sur le provider configuré et les vrais appels Meet/kMeet restent
 à valider.
 
 ## Endurance interrompue
 
 La session `1792077680052`, démarrée à 17 h 21, a conservé 5 640,351 secondes,
-soit environ 1 h 34. À 18 h 55, le débranchement d’un périphérique de capture a
-coïncidé avec le retrait de Display 3 dans WindowServer. ScreenCaptureKit a
-terminé le stream avec `Failed to find any displays or windows to capture`.
-Le filtre d’application était ancré sur un display choisi une fois au démarrage.
-L’écran interne restait disponible. Le correctif doit conserver le même micro et
-le même PID source en reconstruisant la capture sur un display survivant.
+soit environ 1 h 34. Cyrille a confirmé avoir débranché le microphone BY-V
+sélectionné à 18 h 55, et non un périphérique vidéo ou un écran. L’arrêt sur
+perte du microphone choisi est attendu : aucun fallback automatique vers un autre
+microphone ne doit modifier les sources capturées.
+
+ScreenCaptureKit a terminé le stream avec
+`Failed to find any displays or windows to capture`. WindowServer a aussi
+journalisé le retrait de Display 3. Cette observation concomitante ne prouve pas
+que Cyrille a débranché un écran ni que ce retrait a causé l’arrêt. Le message
+natif ne permettait pas d’identifier clairement la perte du BY-V. Le correctif de
+reconstruction décrit ci-dessous couvre les reconfigurations de capture ; il ne
+remplace pas un microphone débranché.
 
 Mesures avant l’arrêt : RSS app médian 49,2 Mio, maximum 55,5 Mio ; RSS worker
 médian 1 619,3 Mio, maximum 1 628,7 Mio ; buffers maximum 191 334 samples ;
@@ -60,6 +67,12 @@ localiser une éventuelle nouvelle panne de PCM. Le moniteur peut aussi vérifie
 le signal connu de la fixture avec `--verify-fixture-signal`, sans traiter les
 silences ordinaires d’une réunion comme des pannes.
 
+La nouvelle session `1792084550673` a démarré à 19 h 15 min 50 s avec le
+micro intégré explicitement sélectionné, le lecteur synthétique dédié, deux
+pistes et l’ASR local actif. Elle teste le commit `db6d3f5`, avec vérification
+périodique du signal connu. Sa fin prévue est vers 23 h 16. Aucun résultat de
+quatre heures n’est acquis à ce stade.
+
 La nouvelle revue externe du correctif a été refusée par l’approbation automatique
 pour transmission de détails non publics. Revue locale et tests ci-dessus
 effectués ; aucune nouvelle revue externe réussie à compter pour ce correctif.
@@ -82,10 +95,10 @@ l’arrêt ciblé et les commandes de vérification.
 
 | Vérification                                           | Résultat                                                                                                                               |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust, exécution série                                  | 289 réussis, 0 échec, 16 ignorés                                                                                                       |
+| Rust, exécution série                                  | 290 réussis, 0 échec, 16 ignorés                                                                                                       |
 | Clippy, lint, formatter, traductions, TypeScript/build | Réussis                                                                                                                                |
 | Bundle macOS signé                                     | Build debug natif et vérification codesign réussis                                                                                     |
-| Convertisseur Swift réel                               | 8 cas réussis : planar/interleaved, 48/44,1/16 kHz, downmix, dérive ±1000 ppm                                                          |
+| Convertisseur Swift réel                               | 9 cas réussis : planar/interleaved, 48/44,1/16 kHz, downmix, dérive ±1000 ppm, reset avec gap                                          |
 | Archive synthétique française, 45 s × 2 pistes         | 720 000 samples par piste ; pertes, overlaps et padding nuls                                                                           |
 | ASR réel avec VAD                                      | « Oui », « Non », « D’accord », affirmation et négation conservées                                                                     |
 | Export synthétique via l’app                           | AAC 48 kHz, 2 canaux, 45,056 s pour 45 s source                                                                                        |
@@ -133,8 +146,9 @@ signalée. Ce padding n’est pas une suppression de l’archive.
 - Le lecteur natif dédié constitue la source contrôlée. Les navigateurs temporaires
   ont échoué à rendre leur page locale ; leurs premières pistes silencieuses ne
   sont pas comptées comme validation du son d’un navigateur.
-- Google Meet, kMeet, exclusion entre deux applications sonores, débranchement et
-  rebranchement physiques du micro restent à tester.
+- Google Meet, kMeet et exclusion entre deux applications sonores restent à
+  tester. Le retrait du BY-V a interrompu l’ancienne endurance ; le message
+  d’erreur spécifique et le cycle complet de reconnexion restent à valider.
 - La capture système Windows/Linux n’est pas implémentée ; des stubs conditionnels
   conservent l’interface. Aucune cross-compilation Windows/Linux faite sur ce Mac.
 
