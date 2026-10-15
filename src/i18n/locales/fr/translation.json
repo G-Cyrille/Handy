@@ -16,7 +16,96 @@
     "postProcessing": "Post-traitement",
     "history": "Historique",
     "debug": "Débogage",
-    "about": "À propos"
+    "about": "À propos",
+    "meetings": "Réunions"
+  },
+  "meetings": {
+    "loading": "Chargement…",
+    "snapshotError": "Impossible de lire l'état de la réunion : {{error}}",
+    "tabs": {
+      "capture": "Réunion",
+      "sessions": "Séances"
+    },
+    "setup": {
+      "title": "Nouvelle réunion",
+      "microphone": "Micro",
+      "microphoneDescription": "Enregistré sur sa propre piste.",
+      "microphonePlaceholder": "Choisir un micro",
+      "system": "Son de l'ordinateur",
+      "systemDescription": "Enregistré sur une seconde piste. Une application est enregistrée en entier, avec tous ses onglets et fenêtres.",
+      "systemPlaceholder": "Choisir une source",
+      "allApps": "Toutes les applications",
+      "refresh": "Actualiser les sources",
+      "unsupported": "Non disponible sur ce système",
+      "captureAll": "Deux pistes : {{microphone}}, et tout le son joué sur cet ordinateur. Les voix ne sont pas séparées par locuteur.",
+      "captureApp": "Deux pistes : {{microphone}}, et tout le son de {{app}}, onglets et fenêtres compris. Les voix ne sont pas séparées par locuteur.",
+      "start": "Démarrer",
+      "starting": "Démarrage…",
+      "startError": "Impossible de démarrer : {{error}}",
+      "sourcesError": "Impossible de lister les sources audio : {{error}}"
+    },
+    "ai": {
+      "title": "Suggestions IA",
+      "unconfigured": "Aucun fournisseur IA configuré",
+      "off": "Désactivées",
+      "count_one": "{{count}} suggestion",
+      "count_other": "{{count}} suggestions",
+      "toggleError": "Impossible de modifier les suggestions IA : {{error}}"
+    },
+    "live": {
+      "recording": "Enregistrement",
+      "stop": "Arrêter",
+      "stopping": "Arrêt…",
+      "stopError": "Impossible d'arrêter : {{error}}",
+      "transcription": "Transcription",
+      "upToDate": "À jour",
+      "behind": "{{duration}} de retard",
+      "waiting": "En attente d'audio",
+      "stalled": "Aucun son depuis {{duration}}",
+      "empty": "La transcription apparaît ici au fil de la réunion.",
+      "truncated": "Affichage des {{count}} dernières lignes. La transcription complète est dans Séances.",
+      "transcriptError": "Impossible de charger la transcription : {{error}}"
+    },
+    "track": {
+      "microphone": "Micro",
+      "system": "Système",
+      "unknown": "Piste {{track}}"
+    },
+    "transcript": {
+      "play": "Lire le segment",
+      "pause": "Pause",
+      "queued": "En attente de transcription",
+      "provisional": "Provisoire, peut encore changer",
+      "failed": "Échec de la transcription : {{error}}",
+      "playbackError": "Impossible de lire ce segment : {{error}}",
+      "noSpeech": "Aucune parole détectée. Audio conservé."
+    },
+    "sessions": {
+      "empty": "Aucune réunion pour l'instant.",
+      "back": "Séances"
+    },
+    "status": {
+      "recording": "En cours",
+      "completed": "Terminée",
+      "interrupted": "Interrompue",
+      "failed": "Échouée"
+    },
+    "detail": {
+      "export": "Exporter en M4A",
+      "exporting": "Export…",
+      "reveal": "Afficher dans le dossier",
+      "openFolder": "Ouvrir le dossier",
+      "retry": "Relancer la transcription",
+      "retrying": "Relance…",
+      "transcript": "Transcription",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "range": "{{from}}–{{to}}",
+      "empty": "Aucune transcription.",
+      "loadError": "Impossible de charger cette réunion : {{error}}",
+      "trackStats": "{{track}} : {{padding}} ms sans audio reçu, {{dropped}} samples perdus, {{overlap}} samples en doublon.",
+      "exportChannels": "Export stéréo : micro à gauche, audio système à droite."
+    }
   },
   "onboarding": {
     "subtitle": "Pour commencer, choisissez un modèle de transcription",
@@ -171,6 +260,10 @@
           "transcribe_with_post_process": {
             "name": "Raccourci de post-traitement",
             "description": "Facultatif : Un raccourci dédié qui applique toujours le post-traitement IA à votre transcription."
+          },
+          "meeting": {
+            "name": "Raccourci réunion",
+            "description": "Démarrer ou arrêter une réunion. Ouvre l'onglet Réunions."
           }
         },
         "errors": {

@@ -174,6 +174,16 @@ function App() {
     };
   }, [t]);
 
+  // The meeting shortcut asks the main window to show the Meetings section.
+  useEffect(() => {
+    const unlisten = listen("meeting-open", () => {
+      setCurrentSection("meetings");
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
   // Listen for paste failures and show a toast.
   // The technical error detail is logged to handy.log on the Rust side
   // (see actions.rs `error!("Failed to paste transcription: ...")`),
