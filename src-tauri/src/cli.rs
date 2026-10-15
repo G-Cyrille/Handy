@@ -4,6 +4,11 @@ use std::path::PathBuf;
 #[derive(Parser, Debug, Clone, Default)]
 #[command(name = "handy", about = "Handy - Speech to Text")]
 pub struct CliArgs {
+    /// Isolated meeting test request. Available in debug builds only.
+    #[cfg(debug_assertions)]
+    #[arg(long, hide = true)]
+    pub meeting_control: Option<String>,
+
     /// Start with the main window hidden
     #[arg(long)]
     pub start_hidden: bool,

@@ -114,7 +114,7 @@ struct FinalizedStreamText {
 pub struct StreamRouter {
     /// Command channel to the active streaming worker, present from
     /// `start_stream` until `finalize_stream`/`cancel_stream`.
-    tx: Mutex<Option<mpsc::Sender<StreamCmd>>>,
+    tx: Mutex<Option<mpsc::SyncSender<StreamCmd>>>,
     /// True while a stream is pending or active (channel is open). The audio
     /// callback checks this first to avoid the mutex lock when no stream runs.
     open: Arc<AtomicBool>,
@@ -132,7 +132,7 @@ impl StreamRouter {
     /// receiver the worker should drain. Caller must ensure no prior channel is
     /// still open.
     fn open(&self) -> mpsc::Receiver<StreamCmd> {
-        let (tx, rx) = mpsc::channel::<StreamCmd>();
+        let (tx, rx) = mpsc::sync_channel::<StreamCmd>(256);
         *self.tx.lock().unwrap() = Some(tx);
         self.open.store(true, Ordering::Relaxed);
         rx
@@ -140,7 +140,7 @@ impl StreamRouter {
 
     /// Take the sender out (closing the channel to new feeds). Returns the
     /// sender so the caller can send the final `Finalize`/`Cancel` command.
-    fn take(&self) -> Option<mpsc::Sender<StreamCmd>> {
+    fn take(&self) -> Option<mpsc::SyncSender<StreamCmd>> {
         self.open.store(false, Ordering::Relaxed);
         self.tx.lock().unwrap().take()
     }
@@ -158,8 +158,15 @@ impl StreamRouter {
         if !self.open.load(Ordering::Relaxed) {
             return;
         }
-        if let Some(tx) = self.tx.lock().unwrap().as_ref() {
-            let _ = tx.send(StreamCmd::Feed(frame.to_vec()));
+        let mut route = self.tx.lock().unwrap();
+        if let Some(tx) = route.as_ref() {
+            if frame.len() > 16_000 || tx.try_send(StreamCmd::Feed(frame.to_vec())).is_err() {
+                // The recorder still owns the full dictation. Closing this
+                // route makes finalize fall back to that complete recording.
+                self.open.store(false, Ordering::Relaxed);
+                *route = None;
+                warn!("Live ASR queue exhausted; using complete dictation audio at stop");
+            }
         }
     }
 
@@ -221,6 +228,7 @@ pub struct TranscriptionManager {
     /// The transcribe-cpp engine: owns the worker process, its model, and
     /// recovery from crashes and hangs.
     engine: EngineSupervisor,
+    scheduler: Arc<crate::asr_scheduler::AsrScheduler>,
     model_manager: Arc<ModelManager>,
     app_handle: AppHandle,
     current_model_id: Arc<Mutex<Option<String>>>,
@@ -253,6 +261,7 @@ impl TranscriptionManager {
     pub fn new(app_handle: &AppHandle, model_manager: Arc<ModelManager>) -> Result<Self> {
         let manager = Self {
             engine: EngineSupervisor::new(!transcribe_gpu_disabled_for_host()),
+            scheduler: Arc::new(crate::asr_scheduler::AsrScheduler::default()),
             model_manager,
             app_handle: app_handle.clone(),
             current_model_id: Arc::new(Mutex::new(None)),
@@ -298,7 +307,7 @@ impl TranscriptionManager {
                     let is_recording = app_handle_cloned
                         .try_state::<Arc<AudioRecordingManager>>()
                         .is_some_and(|a| a.is_recording());
-                    if is_recording {
+                    if is_recording || manager_cloned.scheduler.busy() {
                         manager_cloned.touch_activity();
                         continue;
                     }
@@ -469,7 +478,13 @@ impl TranscriptionManager {
     /// thread, including the event loop.
     pub fn maybe_unload_immediately(&self, context: &str) {
         let settings = get_settings(&self.app_handle);
+        let meeting_active = self
+            .app_handle
+            .try_state::<Arc<crate::meetings::MeetingManager>>()
+            .is_some_and(|manager| manager.is_active());
         if settings.model_unload_timeout == ModelUnloadTimeout::Immediately
+            && !self.scheduler.busy()
+            && !meeting_active
             && self.is_model_loaded()
         {
             info!("Immediately unloading model after {}", context);
@@ -731,6 +746,7 @@ impl TranscriptionManager {
     }
 
     fn run_stream_worker(&self, rx: mpsc::Receiver<StreamCmd>, worker_id: u64) {
+        let _lease = self.scheduler.dictation();
         let _worker = StreamWorkerGuard {
             worker_id,
             active_stream_worker: Arc::clone(&self.active_stream_worker),
@@ -968,7 +984,68 @@ impl TranscriptionManager {
     /// it is stopped; the model stays loaded and the next use starts a fresh
     /// worker for it.
     pub fn cancel_transcription(&self) {
-        self.engine.cancel();
+        self.scheduler.cancel_dictation(|| self.engine.cancel());
+    }
+
+    pub fn reserve_dictation(&self) {
+        self.scheduler.reserve_dictation();
+    }
+
+    pub fn finish_dictation(&self) {
+        self.scheduler.finish_dictation();
+    }
+
+    /// Raw meeting ASR deliberately bypasses dictation rewriting and paste.
+    /// None means dictation owns the engine; the segment remains on disk.
+    pub fn transcribe_meeting(
+        &self,
+        audio: Vec<f32>,
+        on_progress: impl FnMut(StreamProgress) + Send + 'static,
+    ) -> Result<Option<String>> {
+        let Some(_lease) = self.scheduler.try_meeting() else {
+            return Ok(None);
+        };
+        self.touch_activity();
+        let selected = get_settings(&self.app_handle).selected_model;
+        if !self.is_model_loaded() {
+            self.load_model(&selected)?;
+        }
+        let run = RunOptions {
+            language: Some("fr".into()),
+            ..Default::default()
+        };
+        if self
+            .engine
+            .loaded()
+            .is_some_and(|info| info.capabilities.supports_streaming)
+        {
+            let stream =
+                match self
+                    .engine
+                    .start_stream(run.clone(), StreamOptions::default(), on_progress)
+                {
+                    Ok(stream) => stream,
+                    Err(EngineError::Cancelled) => return Ok(None),
+                    Err(error) => return Err(error.into()),
+                };
+            for frame in audio.chunks(1_600) {
+                stream.feed(frame.to_vec());
+            }
+            return match stream.finalize(false) {
+                Ok(Some(finalized)) => Ok(Some(format!(
+                    "{}{}",
+                    finalized.text.committed, finalized.text.tentative
+                ))),
+                Ok(None) => Err(anyhow::anyhow!("Meeting ASR stream ended without a result")),
+                Err(EngineError::Cancelled) => Ok(None),
+                Err(error) => Err(error.into()),
+            };
+        }
+        match self.engine.transcribe(audio, run) {
+            Ok(transcript) => Ok(Some(transcript.text)),
+            Err(EngineError::Cancelled) => Ok(None),
+            Err(error) => Err(error.into()),
+        }
     }
 
     /// Emit a working-phase event to the streaming overlay (spinner + label).
@@ -981,6 +1058,7 @@ impl TranscriptionManager {
     }
 
     pub fn transcribe(&self, audio: Vec<f32>) -> Result<String> {
+        let lease = self.scheduler.dictation();
         #[cfg(debug_assertions)]
         if std::env::var("HANDY_FORCE_TRANSCRIPTION_FAILURE").is_ok() {
             return Err(anyhow::anyhow!(
@@ -1096,6 +1174,7 @@ impl TranscriptionManager {
             );
         }
 
+        drop(lease);
         self.maybe_unload_immediately("transcription");
 
         Ok(final_result)

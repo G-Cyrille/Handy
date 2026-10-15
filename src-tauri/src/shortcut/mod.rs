@@ -9,7 +9,7 @@
 //! The active implementation is determined by the `keyboard_implementation`
 //! setting and can be changed at runtime.
 
-mod handler;
+pub(crate) mod handler;
 pub mod handy_keys;
 pub mod tauri_impl;
 
@@ -177,7 +177,7 @@ pub fn change_binding(
         Some(binding) => binding.clone(),
         None => {
             // Try to get the default binding for this id
-            let default_settings = settings::get_default_settings();
+            let default_settings = crate::test_build::default_settings(&app);
             match default_settings.bindings.get(&id) {
                 Some(default_binding) => {
                     warn!(
@@ -487,7 +487,7 @@ fn register_all_shortcuts_for_implementation(
     implementation: KeyboardImplementation,
 ) -> Vec<String> {
     let mut reset_bindings = Vec::new();
-    let default_bindings = settings::get_default_settings().bindings;
+    let default_bindings = crate::test_build::default_settings(app).bindings;
     let mut current_settings = settings::get_settings(app);
 
     for (id, default_binding) in &default_bindings {

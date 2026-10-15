@@ -425,7 +425,7 @@ pub fn validate_shortcut(raw: &str) -> Result<(), String> {
 pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
     let state = HandyKeysState::new(app.clone())?;
 
-    let default_bindings = settings::get_default_settings().bindings;
+    let default_bindings = crate::test_build::default_settings(app).bindings;
     let user_settings = settings::load_or_create_app_settings(app);
 
     // Register all bindings except cancel (which is dynamic)

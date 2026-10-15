@@ -949,6 +949,17 @@ pub fn get_default_settings() -> AppSettings {
         },
     );
 
+    bindings.insert(
+        "meeting".into(),
+        ShortcutBinding {
+            id: "meeting".into(),
+            name: "Meeting".into(),
+            description: "Start or stop a meeting recording.".into(),
+            default_binding: "ctrl+alt+shift+super+m".into(),
+            current_binding: "ctrl+alt+shift+super+m".into(),
+        },
+    );
+
     AppSettings {
         settings_schema_version: default_settings_schema_version(),
         bindings,
@@ -1098,6 +1109,7 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
 
+    crate::test_build::restrict_settings(app, &mut settings);
     settings
 }
 
