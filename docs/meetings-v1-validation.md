@@ -1,12 +1,17 @@
 # Réunions V1 : validation du 15 octobre 2026
 
-**Version de code testée : `db6d3f5`, branche `feat/meetings-v1`.**
+**Code corrigé, construit et lancé : `37fa0ab`, branche `feat/meetings-v1`.**
+Endurance interrompue sur `db6d3f5` ; le correctif de veille n’a pas encore
+traversé une nouvelle endurance.
 Backend : `2c1bc1c`. Aucune modification de `personal/main`, aucun push.
-Base : `4150a4a`, `main` sans divergence avec `upstream/main` lors du dernier contrôle.
+Base : `4150a4a`. Après le fetch du 15 octobre au soir, `upstream/main` a un
+commit supplémentaire, `9e57a0d`, qui modifie le chunking et l’ASR. Cette branche
+conserve sa base pour ne pas mélanger ce changement aux mesures ; aucun rebase
+ni changement de `main` effectué pendant la validation.
 
 **Verdict provisoire : capture et transcription natives vérifiées pour un essai
-court. Après deux essais interrompus et un correctif, une nouvelle endurance
-de quatre heures est en cours ; elle n’est pas encore validée.**
+court. La nouvelle endurance s’est arrêtée après 1 h 17 min 47 s lors de la
+veille automatique de l’écran. Quatre heures ne sont pas validées.**
 Les suggestions sur le provider configuré et les vrais appels Meet/kMeet restent
 à valider.
 
@@ -67,11 +72,58 @@ localiser une éventuelle nouvelle panne de PCM. Le moniteur peut aussi vérifie
 le signal connu de la fixture avec `--verify-fixture-signal`, sans traiter les
 silences ordinaires d’une réunion comme des pannes.
 
-La nouvelle session `1792084550673` a démarré à 19 h 15 min 50 s avec le
-micro intégré explicitement sélectionné, le lecteur synthétique dédié, deux
-pistes et l’ASR local actif. Elle teste le commit `db6d3f5`, avec vérification
-périodique du signal connu. Sa fin prévue est vers 23 h 16. Aucun résultat de
-quatre heures n’est acquis à ce stade.
+### Nouvelle endurance interrompue par la veille de l’écran
+
+La session `1792084550673` a démarré à 19 h 15 min 50 s avec le micro intégré
+explicitement sélectionné, le lecteur synthétique dédié, deux pistes et l’ASR
+local actif. Elle teste le commit `db6d3f5`, avec vérification périodique du
+signal connu. L’archive dure **4 667,382 s, soit 1 h 17 min 47 s**. Le moniteur
+sort avec le code 1 et `completed: false`, sans atteindre les 14 400 s demandées.
+
+À 20 h 33 min 18 s, powerd signale l’expiration de `UserIsActive` après une
+heure d’inactivité. À 20 h 33 min 28 s, WindowServer publie `Broadcast: Will
+Sleep` et loginwindow déclenche `kLWLockFromDisplayDim`. La reprise du bridge
+échoue ensuite avec `No active display is available for the system audio
+filter`. Il s’agit cette fois d’une veille automatique suivie du verrouillage,
+avec le micro intégré toujours sélectionné. Le helper `caffeinate` prévu par le
+montage était déjà absent au premier contrôle de l’agent de suivi.
+
+Sur les 154 relevés, RSS app médiane 48,9 Mio et maximum 93,0 Mio ; RSS worker
+médiane 1 634,9 Mio et maximum 1 640,4 Mio. Maximum de buffers : 190 807 samples.
+Le signal synthétique est présent dans les fenêtres contrôlées jusqu’à l’arrêt.
+Le backlog cumulé des deux pistes atteint 680 s ; le dernier retard de segment
+ASR mesuré atteint environ 355 s. Le zéro affiché par le snapshot après arrêt
+n’est pas un rattrapage complet : 129 segments étaient encore en attente au
+moment de ce relevé. Au contrôle final, 456,9 s après l’arrêt IPC, les
+1 868 segments sont traités : 1 728 final et 140 sans parole, zéro erreur ASR.
+Ce rattrapage dépasse la limite de contrôle de 120 s. Cette cadence ne valide pas une transcription proche du
+temps réel sur deux pistes continuellement parlées.
+
+Les 934 fenêtres par piste couvrent la même durée, sans gap ni overlap dans
+l’index et sans fichier WAV manquant. À l’arrêt, les compteurs signalent zéro
+sample perdu ou dupliqué ; le padding atteint 9,409 s pour le micro et 9,322 s
+pour le système, dont environ 8,3 s à la fin. Les contrôles numériques de la
+fixture au début, au milieu et à la fin donnent un décalage stable de 18 ms,
+avec des corrélations d’enveloppes de 0,9702, 0,9724 et 0,8790. Cela ne constitue
+pas une réécoute humaine. L’export termine en AAC stéréo 48 kHz, 4 667,435 s,
+environ 64,4 Mo. Son IPC dépasse 55 s, puis une réponse tardive confirme le
+succès ; aucune seconde exportation n’a été lancée.
+
+Le correctif `37fa0ab` garde une activité macOS pendant la capture pour empêcher
+la veille automatique de l’écran et du système. Son arrêt, y compris après une
+erreur de démarrage, libère l’activité. Un test natif interroge les assertions
+IOPM et confirme leur présence puis leur libération. Les neuf tests du
+convertisseur restent verts. Lint, TypeScript/build, clés de traduction,
+formatter, `cargo check --lib` et compilation Swift Intel passent également. Une indication dans le choix des sources explique
+que l’écran reste allumé et qu’un verrouillage ou une veille peut interrompre
+la capture. Aucun réglage global de veille n’est modifié, aucun verrouillage
+manuel n’est contourné. Un test court du bundle et une nouvelle endurance
+complète restent nécessaires pour qualifier ce correctif. Le Mac est ensuite
+vérifié verrouillé, avec zéro écran actif ; aucune nouvelle capture n’est
+lancée dans cet état. Le bundle corrigé signé passe `codesign --verify`, puis
+est lancé via LaunchServices au PID 31244. Le snapshot confirme le stockage
+isolé et aucune capture active. Le test court de capture reste en attente du
+déverrouillage du Mac.
 
 La nouvelle revue externe du correctif a été refusée par l’approbation automatique
 pour transmission de détails non publics. Revue locale et tests ci-dessus
@@ -88,8 +140,20 @@ effectués ; aucune nouvelle revue externe réussie à compter pour ce correctif
 - Handy quotidien `/Applications/Handy Screenshot Test.app` resté au PID initial 78333. Empreinte de son `settings_store.json` inchangée lors des contrôles.
 - Checkouts `feat/voxtral-q4` et `personal/main` propres et préservés.
 
-Le [runbook](meetings-v1.md) décrit le build, le lancement séparé, les fixtures,
-l’arrêt ciblé et les commandes de vérification.
+Le runbook `docs/meetings-v1.md` décrit les fixtures et les commandes de
+vérification. Depuis `/private/tmp/HandyFork-meetings`, pour reconstruire et lancer :
+
+```sh
+python3 scripts/meetings/build-test.py
+open -n 'src-tauri/target/debug/bundle/macos/Handy Meetings Dev.app'
+```
+
+Pour arrêter uniquement la capture puis le build de test :
+
+```sh
+python3 scripts/meetings/control.py '{"operation":"stop"}'
+python3 scripts/meetings/control.py '{"operation":"quit"}'
+```
 
 ## Résultats acquis
 
@@ -172,11 +236,15 @@ Artefacts volumineux conservés hors Git et sans upload d’enregistrement :
 - `/private/tmp/handy-meetings-shell-rust-tests.log` et `handy-meetings-shell-clippy.log` : checks Rust.
 - `/private/tmp/handy-meetings-converter-final.log` : mesures du convertisseur Swift.
 - `/private/tmp/handy-meetings-endurance*` : montage, télémétrie et résultat de l’endurance.
+- `/private/tmp/handy-meetings-endurance-v2-result.md` et `.json` : analyse de l’essai interrompu de 1 h 17 min 47 s.
+- `/private/tmp/handy-meetings-sleep-converter.log` : neuf cas PCM et assertions de veille.
+- `/private/tmp/handy-meetings-sleep-rust-check.log` : intégration du correctif Swift/Rust.
+- `/private/tmp/handy-meetings-sleep-build-verification.json` : nouveau bundle lancé, profil isolé, absence de capture et préservation quotidienne.
 
 ## Répartition du travail
 
 Sol et Opus : exploration UI proportionnée. Sol high : capture native. Opus high :
-archive puis UI. Fable high : deux revues indépendantes, puis exécution de
-l’endurance. Le parent Sol high a intégré, corrigé les défauts des revues et
-exécuté les vérifications ci-dessus. Aucune escalade de modèle pendant cette
-reprise ; aucune validation simulée présentée comme capture native.
+archive puis UI. Fable high : deux revues indépendantes et première endurance.
+Codex Astra high : suivi et analyse de l’endurance `1792084550673`. Le parent a
+intégré, corrigé les défauts et exécuté les vérifications du correctif de veille.
+Aucune validation simulée présentée comme capture native.
