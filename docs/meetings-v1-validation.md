@@ -192,12 +192,24 @@ assertions présentes pendant la capture puis libérées. Les diagnostics raw et
 converted des deux pistes sont vérifiés dans le log Rust réel. L’état du lecteur
 est actualisé chaque seconde et remonté dans la télémétrie.
 
-Un diagnostic borné à dix minutes, session `1792096299955`, démarre à
-22 h 31 min 40 s, avec le même micro intégré et le lecteur dédié. En cas de
-perte du signal de cette fixture, le script relève son état et tente un seul
-refresh avant l’arrêt. Ce probe est réservé au test synthétique ; aucun
-refresh sur silence ordinaire n’est ajouté au produit. Aucune quatrième
-endurance de quatre heures n’est lancée à ce stade.
+Le diagnostic borné à dix minutes `1792096299955` atteint 600,727 s de
+mesure, termine sans erreur ni warning et arrête la capture à 22 h 41 min 42 s.
+L’archive dure 603,030 s sur deux pistes, 242 fenêtres, zéro sample perdu ou
+dupliqué signalé. Le lecteur est déclaré actif à tous les relevés. Le minimum
+des peaks système après warmup est 18 391 i16. Backlog cumulé maximum 45 s,
+retard ASR maximum 21,004 s, buffers maximum 174 121 samples. Le défaut de
+silence de la mesure précédente n’est pas reproduit ; aucun probe de refresh
+sur perte de signal n’a été nécessaire.
+
+T3 redémarre pendant la finalisation, après la fin de mesure et l’arrêt de
+capture. Le contrôle du parent à 22 h 45 confirme aucune capture active,
+213 fenêtres finalisées et 29 sans parole, aucune en attente. Le lecteur test
+est alors arrêté après vérification de son PID/chemin. Les assertions de veille
+avaient été libérées à l’arrêt, le PID quotidien et l’empreinte des réglages
+correspondent à la référence du début de ce diagnostic. La durée exacte de
+rattrapage ASR de cet essai n’a pas été conservée avant le redémarrage.
+Le résultat dix minutes est acquis ; aucune quatrième endurance de quatre
+heures n’a été lancée et la cause du silence tardif reste à isoler.
 
 La nouvelle revue externe du correctif a été refusée par l’approbation automatique
 pour transmission de détails non publics. Revue locale et tests ci-dessus
