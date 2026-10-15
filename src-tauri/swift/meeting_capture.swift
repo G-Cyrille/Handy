@@ -85,11 +85,13 @@ private final class AudioTrack {
     private var nextTimestamp: UInt64?
     private var nextInputTimestamp: UInt64?
     private let diagnosticTrack: Int?
+    private let diagnostics: ((String) -> Void)?
     private var lastRawDiagnostic: UInt64?
     private var lastConvertedDiagnostic: UInt64?
 
-    init(diagnosticTrack: Int? = nil) {
-        self.diagnosticTrack = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String == "HandyMeetingsDev" ? diagnosticTrack : nil
+    init(diagnosticTrack: Int? = nil, diagnostics: ((String) -> Void)? = nil) {
+        self.diagnosticTrack = diagnostics == nil ? nil : diagnosticTrack
+        self.diagnostics = diagnostics
     }
 
     private func diagnoseRaw(_ input: AVAudioPCMBuffer, timestamp: UInt64) {
@@ -117,7 +119,7 @@ private final class AudioTrack {
                 if value != 0 { nonzero += 1 }
             }
         }
-        NSLog("Meeting PCM raw track=%d pts=%llu frames=%u samples=%d rate=%.0f channels=%u format=%lu interleaved=%d peak=%.6f nonzero=%d", track, timestamp, input.frameLength, sampleCount, input.format.sampleRate, input.format.channelCount, input.format.commonFormat.rawValue, input.format.isInterleaved ? 1 : 0, peak, nonzero)
+        diagnostics?(String(format: "Meeting PCM raw track=%d pts=%llu frames=%u samples=%d rate=%.0f channels=%u format=%lu interleaved=%d peak=%.6f nonzero=%d", track, timestamp, input.frameLength, sampleCount, input.format.sampleRate, input.format.channelCount, input.format.commonFormat.rawValue, input.format.isInterleaved ? 1 : 0, peak, nonzero))
     }
 
     func convert(_ sample: CMSampleBuffer, emit: (UInt64, UnsafePointer<Float>, Int) -> Void) throws {
@@ -213,7 +215,7 @@ private final class AudioTrack {
                         peak = max(peak, abs(data[index]))
                         if data[index] != 0 { nonzero += 1 }
                     }
-                    NSLog("Meeting PCM converted track=%d pts=%llu frames=%d rate=16000 channels=1 peak=%.6f nonzero=%d", track, timestamp, count, Double(peak), nonzero)
+                    diagnostics?(String(format: "Meeting PCM converted track=%d pts=%llu frames=%d rate=16000 channels=1 peak=%.6f nonzero=%d", track, timestamp, count, Double(peak), nonzero))
                 }
                 for offset in stride(from: 0, to: count, by: 4096) {
                     emit(timestamp + UInt64(offset) * 62_500, data.advanced(by: offset), min(4096, count - offset))
@@ -251,7 +253,8 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private let application: NSRunningApplication?
     private var applicationPID: Int32 = 0
     // Callback state belongs to queue; stream/recovery/listeners belong to control.
-    private let tracks = [AudioTrack(diagnosticTrack: 0), AudioTrack(diagnosticTrack: 1)]
+    private let tracks: [AudioTrack]
+    private let diagnostics: ((String) -> Void)?
     private var activeStream: SCStream?
     private var accepting = true
     private var firstError: String?
@@ -281,6 +284,17 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         self.application = application
         self.callback = callback
         self.context = context
+        let diagnostics: ((String) -> Void)?
+        if Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String == "Handy Meetings Dev" {
+            diagnostics = { message in
+                message.withCString { callback(context, 254, 0, nil, 0, $0) }
+            }
+        } else {
+            diagnostics = nil
+        }
+        self.diagnostics = diagnostics
+        self.tracks = [AudioTrack(diagnosticTrack: 0, diagnostics: diagnostics),
+                       AudioTrack(diagnosticTrack: 1, diagnostics: diagnostics)]
     }
 
     private var isCancelled: Bool {
@@ -356,7 +370,7 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         streamHasStopped = false
         displayID = display.displayID
         generation += 1
-        NSLog("Meeting stream generation=%llu display=%u builtin=%d", generation, display.displayID, CGDisplayIsBuiltin(display.displayID))
+        diagnostics?(String(format: "Meeting stream generation=%llu display=%u builtin=%d", generation, display.displayID, CGDisplayIsBuiltin(display.displayID)))
         queue.sync { activeStream = stream }
         try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: queue)
         try stream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: queue)
@@ -450,9 +464,10 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
             let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
                 guard let self, !self.isCancelled else { return }
                 let state = self.readHardwareState()
+                self.diagnostics?("Meeting hardware notification selector=\(selector) state_changed=\(state != self.hardwareState)")
                 guard state != self.hardwareState else { return }
                 self.hardwareState = state
-                NSLog("Meeting audio hardware changed state=%@", state.prefix(20).map { String($0) }.joined(separator: ","))
+                self.diagnostics?(String(format: "Meeting audio hardware changed state=%@", state.prefix(20).map { String($0) }.joined(separator: ",")))
                 self.bindAudioListeners()
                 self.scheduleRecovery(reason: "audio-hardware-format-changed")
             }
@@ -501,7 +516,7 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         }
         recoveryAttempt += 1
         lastRecoveryStarted = DispatchTime.now().uptimeNanoseconds
-        NSLog("Meeting recovery reason=%@ generation=%llu display=%u attempt=%d", recoveryReason, generation, displayID ?? 0, recoveryAttempt)
+        diagnostics?(String(format: "Meeting recovery reason=%@ generation=%llu display=%u attempt=%d", recoveryReason, generation, displayID ?? 0, recoveryAttempt))
         if recoveryAttempt == 1 { notice("Meeting audio capture is restarting after a capture source or audio hardware change.") }
         _ = closeStream(final: false)
         guard !isCancelled, queue.sync(execute: { accepting }) else { return }
@@ -511,7 +526,7 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
             try openStream(content: content)
             guard !isCancelled else { return }
             recoveryTimer?.cancel(); recoveryTimer = nil
-            NSLog("Meeting recovery complete generation=%llu display=%u", generation, displayID ?? 0)
+            diagnostics?(String(format: "Meeting recovery complete generation=%llu display=%u", generation, displayID ?? 0))
             notice("Meeting audio capture restarted. Any interruption is preserved as a gap in the recording.")
         } catch {
             _ = closeStream(final: false)

@@ -43,6 +43,7 @@ pub struct AudioFrame {
 #[derive(Debug)]
 pub enum CaptureEvent {
     Audio(AudioFrame),
+    Diagnostic(String),
     Warning(String),
     Error(String),
 }
@@ -159,6 +160,11 @@ mod platform {
                 .unwrap_or(4096);
             let bytes = std::slice::from_raw_parts(error.cast::<u8>(), length);
             let message = String::from_utf8_lossy(bytes).into_owned();
+            if track == u8::MAX - 1 {
+                // Test diagnostics are best effort and must never fail capture.
+                let _ = context.sender.try_send(CaptureEvent::Diagnostic(message));
+                return;
+            }
             if track == u8::MAX {
                 // A recovery notice does not invalidate the audio producer.
                 let _ = context.sender.try_send(CaptureEvent::Warning(message));
@@ -321,6 +327,40 @@ mod platform {
     #[cfg(test)]
     mod tests {
         use super::*;
+
+        #[test]
+        fn dropped_diagnostics_do_not_fail_audio_capture() {
+            let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+            let mut context = CallbackContext {
+                sender,
+                failure: AtomicU8::new(0),
+            };
+            let pointer = (&mut context as *mut CallbackContext).cast();
+            let message = CString::new("Meeting PCM raw track=1 peak=0.5").unwrap();
+            let samples = [0.25f32; 160];
+            unsafe {
+                for _ in 0..2 {
+                    receive(pointer, 254, 0, std::ptr::null(), 0, message.as_ptr());
+                }
+                assert!(matches!(
+                    receiver.try_recv().unwrap(),
+                    CaptureEvent::Diagnostic(_)
+                ));
+                receive(
+                    pointer,
+                    1,
+                    1_000_000,
+                    samples.as_ptr(),
+                    samples.len(),
+                    std::ptr::null(),
+                );
+            }
+            assert!(matches!(
+                receiver.try_recv().unwrap(),
+                CaptureEvent::Audio(_)
+            ));
+            assert_eq!(context.failure.load(Ordering::Acquire), 0);
+        }
 
         #[test]
         fn recovery_notice_keeps_the_audio_callback_alive() {

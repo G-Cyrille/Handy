@@ -192,11 +192,17 @@ impl MeetingManager {
         })?;
         // Permission dialogs precede the archive clock. The earliest callback
         // anchors both tracks, including audio queued during native startup.
-        let first = rx.recv_timeout(Duration::from_millis(250)).ok();
+        let deadline = std::time::Instant::now() + Duration::from_millis(250);
+        let first = loop {
+            match rx.recv_timeout(deadline.saturating_duration_since(std::time::Instant::now())) {
+                Ok(CaptureEvent::Diagnostic(message)) => log::info!("{message}"),
+                event => break event.ok(),
+            }
+        };
         let origin_ns = match &first {
             Some(CaptureEvent::Audio(frame)) => frame.timestamp_ns.saturating_sub(1_000_000_000),
             Some(CaptureEvent::Error(error)) => return Err(error.clone()),
-            Some(CaptureEvent::Warning(_)) | None => {
+            Some(CaptureEvent::Diagnostic(_) | CaptureEvent::Warning(_)) | None => {
                 capture::host_time_ns().saturating_sub(1_000_000_000)
             }
         };
@@ -594,6 +600,10 @@ fn record_event(
 ) -> Result<u64, String> {
     match event {
         CaptureEvent::Error(error) => Err(error),
+        CaptureEvent::Diagnostic(message) => {
+            log::info!("{message}");
+            Ok(origin_ns)
+        }
         CaptureEvent::Warning(warning) => {
             log::warn!("Meeting capture recovery: {warning}");
             *lock(&runtime.warning) = Some(warning);

@@ -7,7 +7,8 @@
 // Callback pointers are borrowed only for the duration of the call. Audio is
 // mono 16 kHz f32, at most 4096 samples per call. PTS is host-clock uptime ns.
 // Track 0 is microphone, 1 is system/application audio. Track 255 with an error
-// string and no samples is a recoverable notice; other errors are terminal.
+// string and no samples is a recoverable notice; track 254 is a best-effort
+// diagnostic from the test bundle. Other errors are terminal.
 // The callback must copy synchronously and must never wait for a consumer.
 typedef void (*HandyMeetingCallback)(void *context, uint8_t track,
     uint64_t timestamp_ns, const float *samples, size_t count, const char *error);

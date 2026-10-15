@@ -103,6 +103,9 @@ def main():
                 }
                 if args.verify_fixture_signal:
                     record["fixture_system_peak_i16"] = fixture_peak(root, session_id)
+                    status_path = Path("/private/tmp/handy-meetings-fixtures/player-status.json")
+                    if status_path.exists():
+                        record["fixture_player"] = json.loads(status_path.read_text())
                 output.write(json.dumps(record) + "\n")
                 output.flush()
                 samples += 1
