@@ -6,6 +6,8 @@
 
 // Callback pointers are borrowed only for the duration of the call. Audio is
 // mono 16 kHz f32, at most 4096 samples per call. PTS is host-clock uptime ns.
+// Track 0 is microphone, 1 is system/application audio. Track 255 with an error
+// string and no samples is a recoverable notice; other errors are terminal.
 // The callback must copy synchronously and must never wait for a consumer.
 typedef void (*HandyMeetingCallback)(void *context, uint8_t track,
     uint64_t timestamp_ns, const float *samples, size_t count, const char *error);
@@ -16,6 +18,9 @@ typedef void (*HandyMeetingCallback)(void *context, uint8_t track,
 int32_t handy_meeting_sources(char **result, char **error);
 void *handy_meeting_start(const char *microphone_id, int32_t application_pid,
     HandyMeetingCallback callback, void *context, char **error);
+// Asynchronously schedules the same bounded recovery used for hardware changes.
+// Borrows the live handle; serialize this call against stop. Never frees it.
+void handy_meeting_refresh(void *handle);
 // Consumes the handle even on error. On return, no callback can use context.
 int32_t handy_meeting_stop(void *handle, char **error);
 uint64_t handy_meeting_host_time_ns(void);

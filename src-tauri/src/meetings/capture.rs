@@ -43,6 +43,7 @@ pub struct AudioFrame {
 #[derive(Debug)]
 pub enum CaptureEvent {
     Audio(AudioFrame),
+    Warning(String),
     Error(String),
 }
 
@@ -96,6 +97,8 @@ mod platform {
             error: *mut *mut c_char,
         ) -> *mut c_void;
         fn handy_meeting_stop(handle: *mut c_void, error: *mut *mut c_char) -> i32;
+        #[cfg(debug_assertions)]
+        fn handy_meeting_refresh(handle: *mut c_void);
         fn handy_meeting_host_time_ns() -> u64;
         fn handy_meeting_free(string: *mut c_char);
     }
@@ -150,13 +153,19 @@ mod platform {
             return;
         }
         let event = if !error.is_null() {
-            context.fail(NATIVE_ERROR);
             // Native messages are short. Bound the scan/copy even on an ABI bug.
             let length = (0..4096)
                 .find(|&index| *error.add(index) == 0)
                 .unwrap_or(4096);
             let bytes = std::slice::from_raw_parts(error.cast::<u8>(), length);
-            CaptureEvent::Error(String::from_utf8_lossy(bytes).into_owned())
+            let message = String::from_utf8_lossy(bytes).into_owned();
+            if track == u8::MAX {
+                // A recovery notice does not invalidate the audio producer.
+                let _ = context.sender.try_send(CaptureEvent::Warning(message));
+                return;
+            }
+            context.fail(NATIVE_ERROR);
+            CaptureEvent::Error(message)
         } else {
             if samples.is_null() || count == 0 || count > MAX_FRAME_SAMPLES || track > 1 {
                 context.fail(INVALID_FRAME);
@@ -188,6 +197,13 @@ mod platform {
     unsafe impl Send for CaptureHandle {}
 
     impl CaptureHandle {
+        #[cfg(debug_assertions)]
+        pub fn refresh(&mut self) -> Result<(), String> {
+            let native = self.native.ok_or("Meeting capture is stopped")?;
+            unsafe { handy_meeting_refresh(native.as_ptr()) };
+            Ok(())
+        }
+
         /// Finalize converter tails, close this producer, and wait for callbacks.
         /// Call on a worker thread. Idempotent. A failed/incomplete capture remains an error on later calls.
         pub fn stop(&mut self) -> Result<(), String> {
@@ -301,6 +317,43 @@ mod platform {
     pub fn host_time_ns() -> u64 {
         unsafe { handy_meeting_host_time_ns() }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn recovery_notice_keeps_the_audio_callback_alive() {
+            let (sender, receiver) = std::sync::mpsc::sync_channel(2);
+            let mut context = CallbackContext {
+                sender,
+                failure: AtomicU8::new(0),
+            };
+            let pointer = (&mut context as *mut CallbackContext).cast();
+            let notice = CString::new("Audio capture resumed after a device change").unwrap();
+            let samples = [0.25f32; 160];
+            unsafe {
+                receive(pointer, u8::MAX, 0, std::ptr::null(), 0, notice.as_ptr());
+                receive(
+                    pointer,
+                    1,
+                    1_000_000,
+                    samples.as_ptr(),
+                    samples.len(),
+                    std::ptr::null(),
+                );
+            }
+            assert!(matches!(
+                receiver.try_recv().unwrap(),
+                CaptureEvent::Warning(_)
+            ));
+            assert!(matches!(
+                receiver.try_recv().unwrap(),
+                CaptureEvent::Audio(_)
+            ));
+            assert_eq!(context.failure.load(Ordering::Acquire), 0);
+        }
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -310,6 +363,11 @@ mod platform {
     pub struct CaptureHandle;
 
     impl CaptureHandle {
+        #[cfg(debug_assertions)]
+        pub fn refresh(&mut self) -> Result<(), String> {
+            Err("Meeting capture requires macOS 15 or later.".into())
+        }
+
         pub fn stop(&mut self) -> Result<(), String> {
             Ok(())
         }

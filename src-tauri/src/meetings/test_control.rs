@@ -24,6 +24,7 @@ enum Operation {
         ai_enabled: bool,
     },
     Stop,
+    RefreshCapture,
     Detail {
         id: String,
         #[serde(default)]
@@ -107,6 +108,10 @@ fn execute(app: &AppHandle, operation: Operation) -> Result<Value, String> {
         } => serde_json::to_value(manager.start(selection, ai_enabled)?).map_err(|e| e.to_string()),
         Operation::Stop => {
             manager.stop()?;
+            Ok(Value::Null)
+        }
+        Operation::RefreshCapture => {
+            manager.refresh_capture()?;
             Ok(Value::Null)
         }
         Operation::Detail { id, offset } => {

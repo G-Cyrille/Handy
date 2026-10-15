@@ -1,5 +1,6 @@
 import AVFoundation
 import AppKit
+import CoreAudio
 import CoreMedia
 import ScreenCaptureKit
 
@@ -83,6 +84,41 @@ private final class AudioTrack {
         sampleRate: 16_000, channels: 1, interleaved: false)!
     private var nextTimestamp: UInt64?
     private var nextInputTimestamp: UInt64?
+    private let diagnosticTrack: Int?
+    private var lastRawDiagnostic: UInt64?
+    private var lastConvertedDiagnostic: UInt64?
+
+    init(diagnosticTrack: Int? = nil) {
+        self.diagnosticTrack = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String == "HandyMeetingsDev" ? diagnosticTrack : nil
+    }
+
+    private func diagnoseRaw(_ input: AVAudioPCMBuffer, timestamp: UInt64) {
+        guard let track = diagnosticTrack,
+              lastRawDiagnostic.map({ timestamp >= $0 + 5_000_000_000 }) ?? true else { return }
+        lastRawDiagnostic = timestamp
+        var peak = 0.0
+        var nonzero = 0
+        var sampleCount = 0
+        let buffers = UnsafeMutableAudioBufferListPointer(input.mutableAudioBufferList)
+        for buffer in buffers {
+            guard let data = buffer.mData else { continue }
+            let count = Int(buffer.mDataByteSize) / max(1, Int(input.format.streamDescription.pointee.mBitsPerChannel / 8))
+            for index in 0..<count {
+                let value: Double
+                switch input.format.commonFormat {
+                case .pcmFormatFloat32: value = Double(data.assumingMemoryBound(to: Float.self)[index])
+                case .pcmFormatFloat64: value = data.assumingMemoryBound(to: Double.self)[index]
+                case .pcmFormatInt16: value = Double(data.assumingMemoryBound(to: Int16.self)[index]) / 32768
+                case .pcmFormatInt32: value = Double(data.assumingMemoryBound(to: Int32.self)[index]) / 2147483648
+                default: continue
+                }
+                sampleCount += 1
+                peak = max(peak, abs(value))
+                if value != 0 { nonzero += 1 }
+            }
+        }
+        NSLog("Meeting PCM raw track=%d pts=%llu frames=%u samples=%d rate=%.0f channels=%u format=%lu interleaved=%d peak=%.6f nonzero=%d", track, timestamp, input.frameLength, sampleCount, input.format.sampleRate, input.format.channelCount, input.format.commonFormat.rawValue, input.format.isInterleaved ? 1 : 0, peak, nonzero)
+    }
 
     func convert(_ sample: CMSampleBuffer, emit: (UInt64, UnsafePointer<Float>, Int) -> Void) throws {
         let count = CMSampleBufferGetNumSamples(sample)
@@ -109,6 +145,7 @@ private final class AudioTrack {
         guard status == noErr else {
             throw CaptureFailure(message: "Cannot copy captured PCM audio (OSStatus \(status)).")
         }
+        diagnoseRaw(input, timestamp: timestamp)
         if let expected = nextInputTimestamp, timestamp + 2_000_000 < expected {
             throw CaptureFailure(message: "Capture audio timestamps moved backwards on the host clock.")
         }
@@ -137,6 +174,13 @@ private final class AudioTrack {
         }
     }
 
+    func reset() {
+        converter = nil
+        inputFormat = nil
+        nextTimestamp = nil
+        nextInputTimestamp = nil
+    }
+
     func finish(emit: (UInt64, UnsafePointer<Float>, Int) -> Void) throws {
         guard let converter else { return }
         try drain(converter, capacity: 4096, emit: emit) { _, state in
@@ -160,6 +204,17 @@ private final class AudioTrack {
             }
             let count = Int(output.frameLength)
             if count > 0, let data = output.floatChannelData?[0], let timestamp = nextTimestamp {
+                if let track = diagnosticTrack,
+                   lastConvertedDiagnostic.map({ timestamp >= $0 + 5_000_000_000 }) ?? true {
+                    lastConvertedDiagnostic = timestamp
+                    var peak: Float = 0
+                    var nonzero = 0
+                    for index in 0..<count {
+                        peak = max(peak, abs(data[index]))
+                        if data[index] != 0 { nonzero += 1 }
+                    }
+                    NSLog("Meeting PCM converted track=%d pts=%llu frames=%d rate=16000 channels=1 peak=%.6f nonzero=%d", track, timestamp, count, Double(peak), nonzero)
+                }
                 for offset in stride(from: 0, to: count, by: 4096) {
                     emit(timestamp + UInt64(offset) * 62_500, data.advanced(by: offset), min(4096, count - offset))
                 }
@@ -174,17 +229,38 @@ private final class AudioTrack {
 @available(macOS 15.0, *)
 private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private let queue = DispatchQueue(label: "handy.meeting.audio")
+    // SCK start/stop completions must never wait on the audio callback queue.
+    private let control = DispatchQueue(label: "handy.meeting.control")
+    private let cancellation = NSLock()
+    private var cancelled = false
     private let callback: HandyMeetingCallback
     private let context: UnsafeMutableRawPointer?
     private let microphone: AVCaptureDevice
     private let application: NSRunningApplication?
-    private let tracks = [AudioTrack(), AudioTrack()]
-    private var stream: SCStream?
-    private var monitor: DispatchSourceTimer?
-    // All mutable callback state is confined to queue.
+    private var applicationPID: Int32 = 0
+    // Callback state belongs to queue; stream/recovery/listeners belong to control.
+    private let tracks = [AudioTrack(diagnosticTrack: 0), AudioTrack(diagnosticTrack: 1)]
+    private var activeStream: SCStream?
     private var accepting = true
     private var firstError: String?
-    private var stopping = false
+    private var monitor: DispatchSourceTimer?
+    private var stream: SCStream?
+    private var streamHasStopped = false
+    private var displayID: CGDirectDisplayID?
+    private var generation: UInt64 = 0
+    private var recoveryTimer: DispatchSourceTimer?
+    private var recoveryReason = ""
+    private var recoveryAttempt = 0
+    private var lastRecoveryStarted: UInt64?
+    private var unstableSourceFailures = 0
+    private var displayObserver: NSObjectProtocol?
+    private struct AudioListener {
+        let object: AudioObjectID
+        var address: AudioObjectPropertyAddress
+        let block: AudioObjectPropertyListenerBlock
+    }
+    private var audioListeners: [AudioListener] = []
+    private var hardwareState: [Double] = []
 
     init(microphone: AVCaptureDevice, application: NSRunningApplication?,
          callback: @escaping HandyMeetingCallback, context: UnsafeMutableRawPointer?) {
@@ -194,14 +270,57 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         self.context = context
     }
 
+    private var isCancelled: Bool {
+        cancellation.lock()
+        defer { cancellation.unlock() }
+        return cancelled
+    }
+
+    private static func preferredDisplay(_ displays: [SCDisplay]) -> SCDisplay? {
+        let active = displays.filter { CGDisplayIsActive($0.displayID) != 0 }
+        return active.first(where: { CGDisplayIsBuiltin($0.displayID) != 0 }) ?? active.first
+    }
+
     func start(content: SCShareableContent, applicationPID: Int32) throws {
-        guard let display = content.displays.first else { throw CaptureFailure(message: "No display is available for the system audio filter.") }
+        try control.sync {
+            self.applicationPID = applicationPID
+            installObservers()
+            try openStream(content: content)
+        }
+        queue.sync {
+            let timer = DispatchSource.makeTimerSource(queue: queue)
+            timer.schedule(deadline: .now() + 1, repeating: 1)
+            timer.setEventHandler { [weak self] in
+                guard let self, !self.isCancelled else { return }
+                if let error = self.firstError {
+                    // Retry terminal errors when Rust's bounded queue was full.
+                    error.withCString { self.callback(self.context, 0, 0, nil, 0, $0) }
+                } else if !self.microphone.isConnected {
+                    self.fail("The selected microphone disconnected. Reconnect it and start a new capture.")
+                } else if self.application?.isTerminated == true {
+                    self.fail("The selected application exited. Start a new capture after reopening it.")
+                }
+            }
+            monitor = timer
+            timer.resume()
+        }
+    }
+
+    private func openStream(content: SCShareableContent) throws {
+        guard !isCancelled else { return }
+        guard microphone.isConnected else {
+            throw CaptureFailure(message: "The selected microphone disconnected. Reconnect it and start a new capture.")
+        }
+        guard let display = Self.preferredDisplay(content.displays) else {
+            throw CaptureFailure(message: "No active display is available for the system audio filter.")
+        }
         let filter: SCContentFilter
         if applicationPID > 0 {
-            guard let app = content.applications.first(where: { $0.processID == applicationPID }) else {
+            guard let app = content.applications.first(where: { $0.processID == applicationPID }),
+                  application?.isTerminated != true else {
                 throw CaptureFailure(message: "The selected application exited. Select a running application and retry.")
             }
-            // Application audio covers all its windows/tabs; there is no tab filter.
+            // Keep the exact PID on every restart; never fall back to global audio.
             filter = SCContentFilter(display: display, including: [app], exceptingWindows: [])
         } else {
             filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
@@ -213,14 +332,18 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         config.sampleRate = 48_000
         config.channelCount = 2
         config.excludesCurrentProcessAudio = false
-        // ScreenCaptureKit needs a display filter, but no screen output or encoder
-        // is registered. Keep its unused display configuration minimal.
+        // No screen output or encoder is registered; SCK still requires a display.
         config.width = 2
         config.height = 2
         config.minimumFrameInterval = CMTime(seconds: 1, preferredTimescale: 1)
         config.showsCursor = false
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         self.stream = stream
+        streamHasStopped = false
+        displayID = display.displayID
+        generation += 1
+        NSLog("Meeting stream generation=%llu display=%u builtin=%d", generation, display.displayID, CGDisplayIsBuiltin(display.displayID))
+        queue.sync { activeStream = stream }
         try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: queue)
         try stream.addStreamOutput(self, type: .microphone, sampleHandlerQueue: queue)
         let done = DispatchSemaphore(value: 0)
@@ -230,24 +353,161 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         if let failure {
             throw CaptureFailure(message: "Cannot start meeting capture: \(failure.localizedDescription). Check Screen & System Audio Recording and Microphone permissions in System Settings.")
         }
-        queue.sync {
-            let timer = DispatchSource.makeTimerSource(queue: queue)
-            timer.schedule(deadline: .now() + 1, repeating: 1)
-            timer.setEventHandler { [weak self] in
-                guard let self, !self.stopping else { return }
-                if let error = self.firstError {
-                    // Retry terminal errors when Rust's bounded queue was full.
-                    error.withCString { self.callback(self.context, 0, 0, nil, 0, $0) }
-                    return
-                }
-                if !self.microphone.isConnected {
-                    self.fail("The selected microphone disconnected. Reconnect it and start a new capture.")
-                } else if self.application?.isTerminated == true {
-                    self.fail("The selected application exited. Start a new capture after reopening it.")
+    }
+
+    private func installObservers() {
+        displayObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: nil
+        ) { [weak self] _ in
+            self?.control.async { [weak self] in
+                guard let self, !self.isCancelled, let id = self.displayID else { return }
+                if CGDisplayIsActive(id) == 0 {
+                    self.scheduleRecovery(reason: "display-anchor-unavailable")
                 }
             }
-            monitor = timer
+        }
+        hardwareState = readHardwareState()
+        bindAudioListeners()
+    }
+
+    private func audioValue<T>(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector,
+                               scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal,
+                               initial: T) -> T {
+        var address = AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: kAudioObjectPropertyElementMain)
+        var value = initial
+        var size = UInt32(MemoryLayout<T>.size)
+        _ = withUnsafeMutablePointer(to: &value) {
+            AudioObjectGetPropertyData(object, &address, 0, nil, &size, $0)
+        }
+        return value
+    }
+
+    private func selectedMicrophoneID() -> AudioObjectID {
+        var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyTranslateUIDToDevice,
+            mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var uid = microphone.uniqueID as CFString
+        var device = AudioObjectID(0)
+        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        let status = withUnsafePointer(to: &uid) {
+            AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address,
+                UInt32(MemoryLayout<CFString>.size), $0, &size, &device)
+        }
+        return status == noErr ? device : 0
+    }
+
+    private func channelCounts(_ device: AudioObjectID, scope: AudioObjectPropertyScope) -> [Double] {
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyStreamConfiguration,
+            mScope: scope, mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(device, &address, 0, nil, &size) == noErr,
+              size >= MemoryLayout<AudioBufferList>.size, size <= 65_536 else { return [] }
+        let storage = UnsafeMutableRawPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { storage.deallocate() }
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, storage) == noErr else { return [] }
+        let buffers = UnsafeMutableAudioBufferListPointer(storage.assumingMemoryBound(to: AudioBufferList.self))
+        return [Double(buffers.count)] + buffers.map { Double($0.mNumberChannels) }
+    }
+
+    private func readHardwareState() -> [Double] {
+        let output = audioValue(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultOutputDevice, initial: AudioObjectID(0))
+        let input = selectedMicrophoneID()
+        var state: [Double] = []
+        for (device, scope) in [(output, kAudioDevicePropertyScopeOutput), (input, kAudioDevicePropertyScopeInput)] {
+            state += [Double(device), audioValue(device, kAudioDevicePropertyNominalSampleRate, initial: Double(0)),
+                      Double(audioValue(device, kAudioDevicePropertyDeviceIsAlive, initial: UInt32(0)))]
+            state += channelCounts(device, scope: scope)
+        }
+        return state
+    }
+
+    private func removeAudioListeners() {
+        for var listener in audioListeners {
+            AudioObjectRemovePropertyListenerBlock(listener.object, &listener.address, control, listener.block)
+        }
+        audioListeners.removeAll()
+    }
+
+    private func bindAudioListeners() {
+        removeAudioListeners()
+        func listen(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector,
+                    scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) {
+            guard object != 0 else { return }
+            var address = AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: kAudioObjectPropertyElementMain)
+            let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+                guard let self, !self.isCancelled else { return }
+                let state = self.readHardwareState()
+                guard state != self.hardwareState else { return }
+                self.hardwareState = state
+                NSLog("Meeting audio hardware changed state=%@", state.prefix(20).map { String($0) }.joined(separator: ","))
+                self.bindAudioListeners()
+                self.scheduleRecovery(reason: "audio-hardware-format-changed")
+            }
+            if AudioObjectAddPropertyListenerBlock(object, &address, control, block) == noErr {
+                audioListeners.append(AudioListener(object: object, address: address, block: block))
+            }
+        }
+        listen(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultOutputDevice)
+        let output = audioValue(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDefaultOutputDevice, initial: AudioObjectID(0))
+        for (device, scope) in [(output, kAudioDevicePropertyScopeOutput), (selectedMicrophoneID(), kAudioDevicePropertyScopeInput)] {
+            listen(device, kAudioDevicePropertyNominalSampleRate)
+            listen(device, kAudioDevicePropertyStreamConfiguration, scope: scope)
+            listen(device, kAudioDevicePropertyDeviceIsAlive)
+        }
+    }
+
+    func refresh() {
+        control.async { [weak self] in self?.scheduleRecovery(reason: "explicit-refresh") }
+    }
+
+    private func scheduleRecovery(reason: String) {
+        guard !isCancelled, queue.sync(execute: { accepting }) else { return }
+        recoveryReason = reason
+        if recoveryTimer == nil {
+            recoveryAttempt = 0
+            let timer = DispatchSource.makeTimerSource(queue: control)
+            timer.setEventHandler { [weak self] in self?.recover() }
+            recoveryTimer = timer
             timer.resume()
+        }
+        // Reuse one timer, including for hardware notification bursts.
+        recoveryTimer?.schedule(deadline: .now() + .milliseconds(750), repeating: .never)
+    }
+
+    private func notice(_ message: String) {
+        queue.sync {
+            guard accepting, !isCancelled else { return }
+            message.withCString { callback(context, 255, 0, nil, 0, $0) }
+        }
+    }
+
+    private func recover() {
+        guard !isCancelled, queue.sync(execute: { accepting }) else {
+            recoveryTimer?.cancel(); recoveryTimer = nil
+            return
+        }
+        recoveryAttempt += 1
+        lastRecoveryStarted = DispatchTime.now().uptimeNanoseconds
+        NSLog("Meeting recovery reason=%@ generation=%llu display=%u attempt=%d", recoveryReason, generation, displayID ?? 0, recoveryAttempt)
+        if recoveryAttempt == 1 { notice("Meeting audio capture is restarting after a capture source or audio hardware change.") }
+        _ = closeStream(final: false)
+        guard !isCancelled, queue.sync(execute: { accepting }) else { return }
+        do {
+            let content = try shareableContent()
+            guard !isCancelled else { return }
+            try openStream(content: content)
+            guard !isCancelled else { return }
+            recoveryTimer?.cancel(); recoveryTimer = nil
+            NSLog("Meeting recovery complete generation=%llu display=%u", generation, displayID ?? 0)
+            notice("Meeting audio capture restarted. Any interruption is preserved as a gap in the recording.")
+        } catch {
+            _ = closeStream(final: false)
+            guard !isCancelled else { return }
+            if recoveryAttempt < 2, microphone.isConnected, application?.isTerminated != true {
+                recoveryTimer?.schedule(deadline: .now() + .seconds(1), repeating: .never)
+            } else {
+                recoveryTimer?.cancel(); recoveryTimer = nil
+                queue.sync { fail("Cannot recover meeting audio capture: \(error.localizedDescription)") }
+            }
         }
     }
 
@@ -258,13 +518,12 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private func fail(_ message: String) {
         guard accepting, firstError == nil else { return }
         firstError = message
-        // A partial recording must be marked failed, never silently continued.
         accepting = false
         message.withCString { callback(context, 0, 0, nil, 0, $0) }
     }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard accepting else { return }
+        guard accepting, activeStream === stream else { return }
         guard CMSampleBufferDataIsReady(sampleBuffer) else {
             fail("Capture returned audio that is not ready.")
             return
@@ -283,24 +542,47 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
-        queue.async { [self] in
-            if !stopping { fail("Meeting capture stopped: \(error.localizedDescription)") }
+        control.async { [weak self] in
+            guard let self, !self.isCancelled, self.stream === stream else { return }
+            self.streamHasStopped = true
+            if (error as NSError).code == -3815 {
+                let now = DispatchTime.now().uptimeNanoseconds
+                if let last = self.lastRecoveryStarted, now - last < 15_000_000_000 {
+                    self.unstableSourceFailures += 1
+                } else {
+                    self.unstableSourceFailures = 0
+                }
+                if self.unstableSourceFailures >= 2 {
+                    self.recoveryTimer?.cancel(); self.recoveryTimer = nil
+                    self.queue.sync { self.fail("Meeting audio capture sources remain unavailable after recovery. Start a new capture when a display is available.") }
+                    return
+                }
+                self.scheduleRecovery(reason: "capture-source-unavailable-3815")
+            } else {
+                self.queue.async { [weak self] in
+                    guard let self, self.activeStream === stream else { return }
+                    self.fail("Meeting capture stopped: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
-    // Wait for SCK completion, drain queued audio and converter tails, then close
-    // the callback gate before Rust releases its context. Late delegates see it closed.
-    func stop() -> String? {
-        queue.sync { stopping = true; monitor?.cancel(); monitor = nil }
+    // Called only on control. Drain old callbacks/tails before allowing a fresh
+    // converter to re-anchor to the new stream's host PTS, preserving real gaps.
+    private func closeStream(final: Bool) -> String? {
         var stopFailure: Error?
         if let stream {
-            let done = DispatchSemaphore(value: 0)
-            stream.stopCapture { error in stopFailure = error; done.signal() }
-            done.wait()
+            if !streamHasStopped {
+                let done = DispatchSemaphore(value: 0)
+                stream.stopCapture { error in stopFailure = error; done.signal() }
+                done.wait()
+            }
             try? stream.removeStreamOutput(self, type: .audio)
             try? stream.removeStreamOutput(self, type: .microphone)
         }
+        stream = nil
         return queue.sync {
+            activeStream = nil
             if accepting {
                 for track in 0..<tracks.count {
                     do {
@@ -310,9 +592,25 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                     } catch { fail(error.localizedDescription) }
                 }
             }
-            accepting = false
-            stream = nil
+            if final { accepting = false }
+            else { tracks.forEach { $0.reset() } }
             return firstError ?? stopFailure.map { "Cannot finalize meeting capture: \($0.localizedDescription)" }
+        }
+    }
+
+    // Cancellation is visible even while control waits for SCK. On return, no
+    // observer, delayed recovery, delegate or converter can call Rust's context.
+    func stop() -> String? {
+        cancellation.lock()
+        cancelled = true
+        cancellation.unlock()
+        return control.sync {
+            recoveryTimer?.cancel(); recoveryTimer = nil
+            if let displayObserver { NotificationCenter.default.removeObserver(displayObserver) }
+            displayObserver = nil
+            removeAudioListeners()
+            queue.sync { monitor?.cancel(); monitor = nil }
+            return closeStream(final: true)
         }
     }
 }
@@ -394,6 +692,13 @@ func meetingStart(_ microphoneID: UnsafePointer<CChar>?, _ applicationPID: Int32
         writeError(error, errorOut)
         return nil
     }
+}
+
+// Borrow the live handle; the caller serializes refresh against stop.
+@_cdecl("handy_meeting_refresh")
+func meetingRefresh(_ handle: UnsafeMutableRawPointer?) {
+    guard #available(macOS 15.0, *), let handle else { return }
+    Unmanaged<MeetingCapture>.fromOpaque(handle).takeUnretainedValue().refresh()
 }
 
 @_cdecl("handy_meeting_stop")

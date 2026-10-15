@@ -1,7 +1,7 @@
 @main
 private struct AudioConverterTests {
     @available(macOS 15.0, *)
-    static func run(rate: Double, channels: Int, interleaved: Bool, drift: Int64 = 0) throws {
+    static func run(rate: Double, channels: Int, interleaved: Bool, drift: Int64 = 0, restartAt: Int? = nil) throws {
         let track = AudioTrack()
         let chunks = drift == 0 ? 100 : 10_000
         let count = Int(rate / 100)
@@ -12,8 +12,13 @@ private struct AudioConverterTests {
         var previousEnd: UInt64?
         var maxSkew: Int64 = 0
         var peak: Float = 0
+        var expectRestartAnchor = false
         let emit: (UInt64, UnsafePointer<Float>, Int) -> Void = { timestamp, data, count in
             precondition(count > 0 && count <= 4096)
+            if expectRestartAnchor {
+                precondition(timestamp == inputPTS, "Restart did not preserve the new stream's host PTS")
+                expectRestartAnchor = false
+            }
             if drift == 0, let previousEnd {
                 precondition(timestamp == previousEnd, "Unexpected PTS discontinuity")
             }
@@ -23,7 +28,14 @@ private struct AudioConverterTests {
             for index in 0..<count { peak = max(peak, abs(data[index])) }
         }
         for chunk in 0..<chunks {
-            inputPTS = UInt64(10_000_000_000 + Int64(chunk) * (10_000_000 + drift))
+            if chunk == restartAt {
+                try track.finish(emit: emit)
+                track.reset()
+                previousEnd = nil
+                expectRestartAnchor = true
+            }
+            let gap: Int64 = restartAt.map { chunk >= $0 ? 2_000_000_000 : 0 } ?? 0
+            inputPTS = UInt64(10_000_000_000 + Int64(chunk) * (10_000_000 + drift) + gap)
             let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count))!
             pcm.frameLength = AVAudioFrameCount(count)
             for channel in 0..<channels {
@@ -50,9 +62,10 @@ private struct AudioConverterTests {
         }
         try track.finish(emit: emit)
         precondition(outputCount == chunks * 160, "Resampling changed sample count: \(outputCount)")
+        precondition(!expectRestartAnchor, "Restart emitted no audio")
         precondition(peak > 0.1, "Downmix lost the right channel")
         precondition(maxSkew < 35_000_000, "Output lost host-clock alignment: \(maxSkew) ns")
-        print("PASS rate=\(rate) channels=\(channels) interleaved=\(interleaved) drift=\(drift)ns/callback samples=\(outputCount) maxSkew=\(maxSkew)ns")
+        print("PASS rate=\(rate) channels=\(channels) interleaved=\(interleaved) drift=\(drift)ns/callback restart=\(restartAt != nil) samples=\(outputCount) maxSkew=\(maxSkew)ns")
     }
 
     static func main() throws {
@@ -62,6 +75,7 @@ private struct AudioConverterTests {
                 try run(rate: rate, channels: channels, interleaved: interleaved)
             }
         }
+        try run(rate: 48_000, channels: 2, interleaved: false, restartAt: 50)
         for drift: Int64 in [-10_000, 10_000] {
             try run(rate: 48_000, channels: 2, interleaved: false, drift: drift)
         }

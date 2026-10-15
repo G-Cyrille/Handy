@@ -196,7 +196,9 @@ impl MeetingManager {
         let origin_ns = match &first {
             Some(CaptureEvent::Audio(frame)) => frame.timestamp_ns.saturating_sub(1_000_000_000),
             Some(CaptureEvent::Error(error)) => return Err(error.clone()),
-            None => capture::host_time_ns().saturating_sub(1_000_000_000),
+            Some(CaptureEvent::Warning(_)) | None => {
+                capture::host_time_ns().saturating_sub(1_000_000_000)
+            }
         };
         let session = self
             .store
@@ -306,6 +308,15 @@ impl MeetingManager {
 
     pub fn is_active(&self) -> bool {
         lock(&self.active).is_some()
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn refresh_capture(&self) -> Result<(), String> {
+        lock(&self.active)
+            .as_mut()
+            .ok_or("No meeting is recording")?
+            .capture
+            .refresh()
     }
 
     pub fn stop(&self) -> Result<(), String> {
@@ -583,6 +594,11 @@ fn record_event(
 ) -> Result<u64, String> {
     match event {
         CaptureEvent::Error(error) => Err(error),
+        CaptureEvent::Warning(warning) => {
+            log::warn!("Meeting capture recovery: {warning}");
+            *lock(&runtime.warning) = Some(warning);
+            Ok(origin_ns)
+        }
         CaptureEvent::Audio(frame) => {
             let track = usize::from(frame.track);
             if frame.track != archive::TRACK_MICROPHONE && frame.track != archive::TRACK_SYSTEM {

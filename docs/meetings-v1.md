@@ -99,7 +99,7 @@ elle ne valide pas Google Meet, kMeet ou le filtrage d’un navigateur.
 Après avoir démarré une réunion native avec deux pistes :
 
 ```sh
-python3 scripts/meetings/endurance.py --seconds 14400 --interval 30 \
+python3 scripts/meetings/endurance.py --seconds 14400 --interval 30 --verify-fixture-signal \
   --output /private/tmp/handy-meetings-endurance.jsonl
 ```
 
@@ -107,5 +107,9 @@ Le moniteur ne lance ni n’arrête Handy. Il consigne RSS et CPU fournis par `p
 taille d’archive, espace libre, backlog, buffers, durée/retard ASR, progression des
 transcripts, compteurs des pistes et erreurs. `completed` signifie que la durée de
 mesure est atteinte ; il faut encore vérifier les marqueurs audio et l’export.
+L’option de contrôle du signal exige la source Handy Fixture Player. Elle échoue
+si le signal connu de cette fixture disparaît des trois dernières fenêtres ; elle
+ne s’applique pas à une réunion ordinaire. Le test court de reconstruction native
+est `python3 scripts/meetings/recovery.py --microphone 'MacBook Pro Microphone'`.
 Ne pas uploader les enregistrements. Les résultats mesurés sont consignés dans le
 rapport de validation de la branche.

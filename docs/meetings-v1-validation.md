@@ -5,9 +5,64 @@ Backend : `2c1bc1c`. Aucune modification de `personal/main`, aucun push.
 Base : `4150a4a`, `main` sans divergence avec `upstream/main` lors du dernier contrôle.
 
 **Verdict provisoire : capture et transcription natives vérifiées pour un essai
-court. L’endurance réelle de quatre heures est en cours de validation.**
+court. L’endurance de quatre heures a échoué et demande un correctif de capture.**
 Les suggestions sur le provider configuré et les vrais appels Meet/kMeet restent
-à valider. Ce rapport sera complété avec les mesures d’endurance.
+à valider.
+
+## Endurance interrompue
+
+La session `1792077680052`, démarrée à 17 h 21, a conservé 5 640,351 secondes,
+soit environ 1 h 34. À 18 h 55, le débranchement d’un périphérique de capture a
+coïncidé avec le retrait de Display 3 dans WindowServer. ScreenCaptureKit a
+terminé le stream avec `Failed to find any displays or windows to capture`.
+Le filtre d’application était ancré sur un display choisi une fois au démarrage.
+L’écran interne restait disponible. Le correctif doit conserver le même micro et
+le même PID source en reconstruisant la capture sur un display survivant.
+
+Mesures avant l’arrêt : RSS app médian 49,2 Mio, maximum 55,5 Mio ; RSS worker
+médian 1 619,3 Mio, maximum 1 628,7 Mio ; buffers maximum 191 334 samples ;
+backlog maximum 40 secondes, puis nul après rattrapage. Les 2 258 segments sont
+traités, dont 1 406 avec résultat ASR et 852 sans parole. Les deux pistes ont zéro
+sample perdu ou dupliqué signalé. L’archive reste disponible.
+
+Un premier essai de 13 minutes avait déjà été interrompu : les samples de la piste
+système sont devenus nuls à 17 h 12 min 50 s, au moment d’un changement de route
+audio associé à une dictée quotidienne. Le lecteur continuait à jouer. Un nouveau
+stream a rétabli le signal. Les zéros ayant été mesurés après conversion, leur
+origine exacte dans ScreenCaptureKit ou le convertisseur reste à isoler.
+
+Ces essais ne valident pas quatre heures et ne sont pas additionnés pour produire
+un résultat d’endurance. La tâche de mesure a été arrêtée avant les corrections.
+
+### Correctif et tests courts de reprise
+
+Le filtre privilégie désormais un écran interne actif. La disparition de son
+affichage, une erreur native `-3815` ou une reconfiguration matérielle audio
+déclenchent une reconstruction bornée du stream, avec le même PID et le même UID
+micro. Deux tentatives maximum, notifications coalescées, callbacks de l’ancien
+stream ignorés et arrêt prioritaire. Le silence seul ne déclenche aucune reprise.
+Les interruptions restent comptées comme padding dans l’archive et une notice
+est affichée.
+
+La suite passe à 290 tests Rust réussis, aucun échec, 16 ignorés ; Clippy et le
+formatter passent. Les 9 cas du convertisseur Swift et les compilations ARM64 et
+Intel passent. Le bundle signé a passé le test natif de trois demandes de refresh
+avec signal présent avant/après, sources inchangées et arrêt concurrent à une
+reprise. Session `1792084354873` : zéro sample perdu ou dupliqué signalé ; padding
+micro 24 634 samples et système 22 448, pré-roll inclus.
+
+Le BY-V était absent lors de ce nouveau test ; le micro intégré a été sélectionné
+explicitement. L’app ne bascule pas automatiquement vers un autre microphone
+quand le microphone choisi est débranché. Le test de refresh forcé ne remplace pas
+un nouveau test physique de débranchement ou une transition Bluetooth réelle.
+Les diagnostics numériques avant/après conversion permettent désormais de
+localiser une éventuelle nouvelle panne de PCM. Le moniteur peut aussi vérifier
+le signal connu de la fixture avec `--verify-fixture-signal`, sans traiter les
+silences ordinaires d’une réunion comme des pannes.
+
+La nouvelle revue externe du correctif a été refusée par l’approbation automatique
+pour transmission de détails non publics. Revue locale et tests ci-dessus
+effectués ; aucune nouvelle revue externe réussie à compter pour ce correctif.
 
 ## Environnement et isolation
 
