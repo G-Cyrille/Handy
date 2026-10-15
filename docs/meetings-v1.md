@@ -115,7 +115,10 @@ transcripts, compteurs des pistes et erreurs. `completed` signifie que la durée
 mesure est atteinte ; il faut encore vérifier les marqueurs audio et l’export.
 L’option de contrôle du signal exige la source Handy Fixture Player. Elle échoue
 si le signal connu de cette fixture disparaît des trois dernières fenêtres ; elle
-ne s’applique pas à une réunion ordinaire. Le test court de reconstruction native
+ne s’applique pas à une réunion ordinaire. L’état numérique du lecteur est aussi consigné. Dans le seul bundle de test,
+les diagnostics PCM avant/après conversion et de reconfiguration passent par
+la queue bornée vers le log Rust, sans texte transcrit ni samples audio.
+Le test court de reconstruction native
 est `python3 scripts/meetings/recovery.py --microphone 'MacBook Pro Microphone'`.
 Ne pas uploader les enregistrements. Les résultats mesurés sont consignés dans le
 rapport de validation de la branche.

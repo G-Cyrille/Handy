@@ -1,19 +1,19 @@
 # Réunions V1 : validation du 15 octobre 2026
 
-**Code corrigé, construit et lancé : `37fa0ab`, branche `feat/meetings-v1`.**
-Endurance interrompue sur `db6d3f5` ; le correctif de veille n’a pas encore
-traversé une nouvelle endurance.
+**Code instrumenté : `d433f4c`, branche `feat/meetings-v1`.**
+Le dernier essai d’endurance utilise `37fa0ab`, avec protection contre la veille.
+La version instrumentée est construite et passe un test court natif ; la cause
+de la disparition du signal reste à reproduire.
 Backend : `2c1bc1c`. Aucune modification de `personal/main`, aucun push.
 Base : `4150a4a`. Après le fetch du 15 octobre au soir, `upstream/main` a un
 commit supplémentaire, `9e57a0d`, qui modifie le chunking et l’ASR. Cette branche
 conserve sa base pour ne pas mélanger ce changement aux mesures ; aucun rebase
 ni changement de `main` effectué pendant la validation.
 
-**Verdict provisoire : capture et transcription natives vérifiées pour un essai
-court. La nouvelle endurance s’est arrêtée après 1 h 17 min 47 s lors de la
-veille automatique de l’écran. Le correctif passe ensuite un test court natif ;
-une nouvelle mesure a démarré à 21 h 27 min 52 s. Quatre heures ne sont pas
-encore validées.**
+**Verdict : capture/transcription natives vérifiées pour des essais courts.
+Quatre heures non validées. La dernière mesure s’arrête à 52 min 37 s parce
+que la piste système devient nulle pendant la lecture synthétique attendue.
+La cause reste à isoler entre lecteur, ScreenCaptureKit et convertisseur.**
 Les suggestions sur le provider configuré et les vrais appels Meet/kMeet restent
 à valider.
 
@@ -132,27 +132,72 @@ essai court `1792092294143` avait échoué après 8,118 s parce que le lecteur d
 fixture avait quitté ; son archive est conservée et la cause de cette fermeture
 n’est pas établie. Le lecteur a ensuite été relancé en arrière-plan.
 
-### Mesure de quatre heures en cours après le correctif de veille
+### Troisième mesure arrêtée sur disparition du signal
 
-La session `1792092472203` démarre le 15 octobre à 21 h 27 min 52 s sur le
-commit `37fa0ab`. Fin prévue vers 1 h 28 le 16 octobre. Micro intégré, lecteur
-synthétique dédié PID 40492, app test PID 31244, ASR local et IA coupée. Les deux
-assertions de veille sont confirmées au démarrage. Aucun helper caffeinate
-n’est nécessaire et aucun code/build n’est modifié pendant la mesure.
+La session `1792092472203` démarre le 15 octobre à 21 h 27 min 52 s sur
+`37fa0ab`. Micro intégré, lecteur synthétique dédié PID 40492, app test
+PID 31244, ASR local et IA coupée. Les assertions de veille sont confirmées au
+démarrage. Aucun code/build n’est modifié pendant la mesure.
 
-Le moniteur consigne la progression toutes les 30 s. Le runner arrête uniquement
-cette session à la fin ou à l’échec du contrôle, attend au maximum 120 s le
-rattrapage ASR et arrête le lecteur de fixture après la capture. Le statut
-`completed` du moniteur ne suffira pas : les marqueurs audio, compteurs,
-progression ASR et export resteront à vérifier.
+Le contrôle du signal échoue après 3 155,107 s de mesure. Le runner arrête
+alors uniquement cette session à 22 h 20 min 28 s. L’archive conserve
+**3 157,605 s, soit 52 min 37,605 s**, sur chaque piste. Le moniteur sort avec
+le code 1, `completed: false`. Le statut applicatif `completed` vient de cet
+arrêt explicite et ne prouve pas que le test de quatre heures a réussi.
 
-Avant le démarrage, le garde-fou relève une empreinte des réglages quotidiens
-différente de celle du début de journée. Le PID quotidien reste 78333 et le
-stockage runtime du test reste isolé. Le changement est observé après le
-réveil et l’usage du Mac ; cette seule observation ne permet pas d’en attribuer
-la cause. Aucun réglage quotidien n’est modifié ou restauré par les scripts de
-reprise. L’ancienne empreinte est conservée et une référence séparée est relevée
-pour comparer début et fin de cette nouvelle mesure.
+La capture s’était reconstruite à 22 h 16 min 39 s puis le signal avait continué
+plusieurs minutes. Les dernières fenêtres système sont entièrement nulles,
+alors que leurs phases attendues dans la fixture contiennent du son. Les
+callbacks continuent et les samples sont comptés comme reçus : zéro perte ou
+overlap dans les compteurs ne garantit pas ici la présence du signal.
+Les zéros sont mesurés après conversion. Le lecteur a été arrêté par le runner
+après la capture ; son état audio au moment de la panne n’avait pas été
+journalisé. La cause lecteur/SCK/convertisseur ne peut donc pas être tranchée.
+
+Les 632 fenêtres par piste couvrent la même timeline, sans fichier manquant ni
+gap d’index. Padding total micro 26 192 samples, système 24 720. RSS app médiane
+53,3 Mio, maximum 73,2 ; worker médiane 1 625,9 Mio, maximum 1 628,0. Maximum de
+buffers 189 925 samples. Backlog cumulé maximum 105 s, retard ASR maximum 54,1 s.
+L’ASR termine son rattrapage dans les 45,1 s de contrôle après arrêt :
+963 segments finalisés et 301 sans parole, aucune erreur. Les assertions de
+veille disparaissent après arrêt. Aucun export de cette troisième session
+n’est compté comme validé.
+
+Le PID quotidien reste 78333 et son empreinte de réglages correspond à la
+référence distincte relevée avant cette mesure. Elle différait déjà de la
+référence du début de journée, observée après le réveil et l’usage du Mac.
+Cette seule observation ne permet pas d’attribuer la modification. L’ancienne
+référence est conservée ; aucun réglage quotidien n’a été restauré par les
+scripts de reprise.
+
+### Instrumentation de la disparition du signal
+
+Le filtre Swift des diagnostics PCM comparait `CFBundleName` à
+`HandyMeetingsDev` au lieu de `Handy Meetings Dev`. Les niveaux raw/converted
+n’étaient donc pas émis. Les événements NSLog du bridge ne sont pas retrouvés
+dans les journaux consultés. Le commit `d433f4c` les transporte désormais vers
+le log Rust par la queue bornée existante, sans I/O dans les callbacks audio.
+Ces événements restent propres au bundle de test, non fatals et sans samples
+ou transcript dans le texte journalisé. Ils ne remplacent pas une première
+frame audio pour établir l’origine de l’archive.
+
+Le lecteur synthétique écrit maintenant un état numérique par seconde : PID,
+heure, `isPlaying`, position dans la boucle et niveau. Le moniteur conserve cet
+état avec ses mesures pour distinguer arrêt du lecteur et perte de capture.
+Les deux tests Rust ciblés du callback passent, dont saturation des diagnostics
+sans échec audio. Clippy, formatter, neuf cas PCM et assertions de veille,
+ainsi que la compilation Swift Intel passent. Le bundle signé est construit et lancé. Le test natif `1792096225975` passe
+sur 42,021 s : signal avant/après refresh, zéro sample perdu ou dupliqué signalé,
+assertions présentes pendant la capture puis libérées. Les diagnostics raw et
+converted des deux pistes sont vérifiés dans le log Rust réel. L’état du lecteur
+est actualisé chaque seconde et remonté dans la télémétrie.
+
+Un diagnostic borné à dix minutes, session `1792096299955`, démarre à
+22 h 31 min 40 s, avec le même micro intégré et le lecteur dédié. En cas de
+perte du signal de cette fixture, le script relève son état et tente un seul
+refresh avant l’arrêt. Ce probe est réservé au test synthétique ; aucun
+refresh sur silence ordinaire n’est ajouté au produit. Aucune quatrième
+endurance de quatre heures n’est lancée à ce stade.
 
 La nouvelle revue externe du correctif a été refusée par l’approbation automatique
 pour transmission de détails non publics. Revue locale et tests ci-dessus
@@ -270,7 +315,8 @@ Artefacts volumineux conservés hors Git et sans upload d’enregistrement :
 - `/private/tmp/handy-meetings-sleep-rust-check.log` : intégration du correctif Swift/Rust.
 - `/private/tmp/handy-meetings-sleep-build-verification.json` : nouveau bundle lancé, profil isolé, absence de capture et préservation quotidienne.
 - `/private/tmp/handy-meetings-sleep-native-result.json` : test court du bundle corrigé, refresh, signal et assertions.
-- `/private/tmp/handy-meetings-endurance-v3*` : manifeste, télémétrie et référence quotidienne de la mesure en cours.
+- `/private/tmp/handy-meetings-endurance-v3*` : manifeste, télémétrie, analyse, niveaux des fenêtres finales et références quotidiennes de la mesure interrompue.
+- `/private/tmp/handy-meetings-diagnostics-*` : checks du bridge instrumenté.
 
 ## Répartition du travail
 
