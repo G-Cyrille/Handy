@@ -226,6 +226,18 @@ private final class AudioTrack {
     }
 }
 
+// SCK audio still needs an active display. Keep automatic idle sleep from
+// removing it during a capture; explicit lock, sleep and lid closure still win.
+private final class CaptureActivity {
+    private let token = ProcessInfo.processInfo.beginActivity(
+        options: [.idleDisplaySleepDisabled, .idleSystemSleepDisabled],
+        reason: "Recording meeting audio")
+
+    deinit {
+        ProcessInfo.processInfo.endActivity(token)
+    }
+}
+
 @available(macOS 15.0, *)
 private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private let queue = DispatchQueue(label: "handy.meeting.audio")
@@ -247,6 +259,7 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var stream: SCStream?
     private var streamHasStopped = false
     private var displayID: CGDirectDisplayID?
+    private var activity: CaptureActivity?
     private var generation: UInt64 = 0
     private var recoveryTimer: DispatchSourceTimer?
     private var recoveryReason = ""
@@ -284,6 +297,7 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     func start(content: SCShareableContent, applicationPID: Int32) throws {
         try control.sync {
             self.applicationPID = applicationPID
+            activity = CaptureActivity()
             installObservers()
             try openStream(content: content)
         }
@@ -605,6 +619,7 @@ private final class MeetingCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         cancelled = true
         cancellation.unlock()
         return control.sync {
+            defer { activity = nil }
             recoveryTimer?.cancel(); recoveryTimer = nil
             if let displayObserver { NotificationCenter.default.removeObserver(displayObserver) }
             displayObserver = nil

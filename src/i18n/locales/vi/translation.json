@@ -42,6 +42,7 @@
       "start": "Start",
       "starting": "Starting…",
       "startError": "Couldn't start: {{error}}",
+      "screenAwake": "The screen stays awake during capture. Locking or sleeping the Mac can stop it.",
       "sourcesError": "Couldn't list audio sources: {{error}}"
     },
     "ai": {

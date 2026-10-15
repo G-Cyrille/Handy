@@ -48,6 +48,12 @@ pas en release. Son import WAV est limité aux fixtures sous
 Dans Meetings, choisir le micro et le son système ou une application. Un filtre
 d’application inclut tous ses onglets et fenêtres. L’IA est facultative et utilise
 le provider/modèle affiché ; ses prompts sont distincts de ceux de la dictée.
+L’écran reste allumé pendant la capture pour préserver le filtre ScreenCaptureKit.
+Cette protection contre la veille automatique se termine avec la capture, y
+compris après une erreur. Un verrouillage manuel, une veille forcée ou la
+fermeture du capot peuvent interrompre la capture ; l’archive déjà écrite reste
+disponible. Aucun réglage global d’alimentation n’est modifié.
+
 Apple Intelligence n’est pas proposé pour les réunions : son bridge ne permet pas
 d’annuler les requêtes à la clôture d’une session.
 

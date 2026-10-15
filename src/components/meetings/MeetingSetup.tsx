@@ -213,7 +213,10 @@ export const MeetingSetup: React.FC<MeetingSetupProps> = ({
         />
         <ShortcutInput shortcutId="meeting" grouped />
         <div className="flex items-center gap-4 px-4 py-3">
-          <p className="flex-1 text-sm text-text/70">{captureDescription}</p>
+          <div className="flex-1 space-y-1 text-sm text-text/70">
+            <p>{captureDescription}</p>
+            <p>{t("meetings.setup.screenAwake")}</p>
+          </div>
           <Button onClick={start} disabled={!canStart || starting}>
             {starting
               ? t("meetings.setup.starting")

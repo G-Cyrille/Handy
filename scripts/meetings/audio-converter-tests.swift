@@ -1,3 +1,5 @@
+import IOKit.pwr_mgt
+
 @main
 private struct AudioConverterTests {
     @available(macOS 15.0, *)
@@ -68,8 +70,33 @@ private struct AudioConverterTests {
         print("PASS rate=\(rate) channels=\(channels) interleaved=\(interleaved) drift=\(drift)ns/callback restart=\(restartAt != nil) samples=\(outputCount) maxSkew=\(maxSkew)ns")
     }
 
+    static func captureActivityAssertions() -> [String] {
+        var raw: Unmanaged<CFDictionary>?
+        precondition(IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess)
+        guard let all = raw?.takeRetainedValue() as? [NSNumber: [[String: Any]]] else {
+            preconditionFailure("Cannot read power assertions")
+        }
+        return (all[NSNumber(value: getpid())] ?? []).filter {
+            ($0["AssertName"] as? String) == "Recording meeting audio" && ($0["AssertLevel"] as? Int) == 255
+        }.compactMap { $0["AssertType"] as? String }.sorted()
+    }
+
+    static func testCaptureActivity() {
+        precondition(captureActivityAssertions().isEmpty)
+        var activity: CaptureActivity? = CaptureActivity()
+        withExtendedLifetime(activity) {
+            let active = captureActivityAssertions()
+            precondition(active.contains("PreventUserIdleDisplaySleep"))
+            precondition(active.contains("PreventUserIdleSystemSleep"))
+        }
+        activity = nil
+        precondition(captureActivityAssertions().isEmpty, "Power assertions survived capture activity")
+        print("PASS capture activity prevents idle display/system sleep and releases both assertions")
+    }
+
     static func main() throws {
         guard #available(macOS 15.0, *) else { return }
+        testCaptureActivity()
         for interleaved in [true, false] {
             for (rate, channels) in [(48_000.0, 2), (44_100.0, 1), (16_000.0, 1)] {
                 try run(rate: rate, channels: channels, interleaved: interleaved)

@@ -42,6 +42,7 @@
       "start": "Démarrer",
       "starting": "Démarrage…",
       "startError": "Impossible de démarrer : {{error}}",
+      "screenAwake": "L’écran reste allumé pendant la capture. Verrouiller ou mettre le Mac en veille peut l’interrompre.",
       "sourcesError": "Impossible de lister les sources audio : {{error}}"
     },
     "ai": {
