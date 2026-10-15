@@ -11,7 +11,9 @@ ni changement de `main` effectué pendant la validation.
 
 **Verdict provisoire : capture et transcription natives vérifiées pour un essai
 court. La nouvelle endurance s’est arrêtée après 1 h 17 min 47 s lors de la
-veille automatique de l’écran. Quatre heures ne sont pas validées.**
+veille automatique de l’écran. Le correctif passe ensuite un test court natif ;
+une nouvelle mesure a démarré à 21 h 27 min 52 s. Quatre heures ne sont pas
+encore validées.**
 Les suggestions sur le provider configuré et les vrais appels Meet/kMeet restent
 à valider.
 
@@ -122,8 +124,35 @@ complète restent nécessaires pour qualifier ce correctif. Le Mac est ensuite
 vérifié verrouillé, avec zéro écran actif ; aucune nouvelle capture n’est
 lancée dans cet état. Le bundle corrigé signé passe `codesign --verify`, puis
 est lancé via LaunchServices au PID 31244. Le snapshot confirme le stockage
-isolé et aucune capture active. Le test court de capture reste en attente du
-déverrouillage du Mac.
+isolé et aucune capture active. Après déverrouillage, le test court natif `1792092356411` passe : 42,827 s
+sur deux pistes, zéro sample perdu ou dupliqué signalé, signal système avant et
+après un refresh forcé. Les deux assertions IOPM sont présentes pendant la
+capture, restent présentes après refresh et disparaissent à l’arrêt. Le premier
+essai court `1792092294143` avait échoué après 8,118 s parce que le lecteur de
+fixture avait quitté ; son archive est conservée et la cause de cette fermeture
+n’est pas établie. Le lecteur a ensuite été relancé en arrière-plan.
+
+### Mesure de quatre heures en cours après le correctif de veille
+
+La session `1792092472203` démarre le 15 octobre à 21 h 27 min 52 s sur le
+commit `37fa0ab`. Fin prévue vers 1 h 28 le 16 octobre. Micro intégré, lecteur
+synthétique dédié PID 40492, app test PID 31244, ASR local et IA coupée. Les deux
+assertions de veille sont confirmées au démarrage. Aucun helper caffeinate
+n’est nécessaire et aucun code/build n’est modifié pendant la mesure.
+
+Le moniteur consigne la progression toutes les 30 s. Le runner arrête uniquement
+cette session à la fin ou à l’échec du contrôle, attend au maximum 120 s le
+rattrapage ASR et arrête le lecteur de fixture après la capture. Le statut
+`completed` du moniteur ne suffira pas : les marqueurs audio, compteurs,
+progression ASR et export resteront à vérifier.
+
+Avant le démarrage, le garde-fou relève une empreinte des réglages quotidiens
+différente de celle du début de journée. Le PID quotidien reste 78333 et le
+stockage runtime du test reste isolé. Le changement est observé après le
+réveil et l’usage du Mac ; cette seule observation ne permet pas d’en attribuer
+la cause. Aucun réglage quotidien n’est modifié ou restauré par les scripts de
+reprise. L’ancienne empreinte est conservée et une référence séparée est relevée
+pour comparer début et fin de cette nouvelle mesure.
 
 La nouvelle revue externe du correctif a été refusée par l’approbation automatique
 pour transmission de détails non publics. Revue locale et tests ci-dessus
@@ -137,7 +166,7 @@ effectués ; aucune nouvelle revue externe réussie à compter pour ce correctif
 - Build : `/private/tmp/HandyFork-meetings/src-tauri/target/debug/bundle/macos/Handy Meetings Dev.app`.
 - À la demande de Cyrille, identité macOS de la coquille Screenshot Test conservée.
   Profil runtime `com.pais.handy.meetings-dev` distinct pour données, logs et IPC.
-- Handy quotidien `/Applications/Handy Screenshot Test.app` resté au PID initial 78333. Empreinte de son `settings_store.json` inchangée lors des contrôles.
+- Handy quotidien `/Applications/Handy Screenshot Test.app` resté au PID initial 78333. Empreinte de son `settings_store.json` inchangée aux contrôles initiaux et à la fin de la mesure v2 ; différence observée avant v3, détaillée ci-dessus.
 - Checkouts `feat/voxtral-q4` et `personal/main` propres et préservés.
 
 Le runbook `docs/meetings-v1.md` décrit les fixtures et les commandes de
@@ -240,6 +269,8 @@ Artefacts volumineux conservés hors Git et sans upload d’enregistrement :
 - `/private/tmp/handy-meetings-sleep-converter.log` : neuf cas PCM et assertions de veille.
 - `/private/tmp/handy-meetings-sleep-rust-check.log` : intégration du correctif Swift/Rust.
 - `/private/tmp/handy-meetings-sleep-build-verification.json` : nouveau bundle lancé, profil isolé, absence de capture et préservation quotidienne.
+- `/private/tmp/handy-meetings-sleep-native-result.json` : test court du bundle corrigé, refresh, signal et assertions.
+- `/private/tmp/handy-meetings-endurance-v3*` : manifeste, télémétrie et référence quotidienne de la mesure en cours.
 
 ## Répartition du travail
 
