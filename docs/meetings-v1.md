@@ -73,6 +73,39 @@ Sessions permet la consultation, la lecture des segments et l’export M4A AAC :
 micro à gauche, son système/application à droite. L’export crée temporairement un
 WAV stéréo, soit environ 922 Mo pour quatre heures, en plus de l’archive source.
 
+## Transcript et suggestions IA
+
+Dans Sessions, ouvrir une réunion arrêtée puis choisir Markdown, texte brut ou
+JSON à côté d’Exporter la transcription. Le fichier complet `transcript.md`,
+`transcript.txt` ou `transcript.json` est écrit dans le dossier de la session,
+puis sélectionné dans Finder. L’export utilise une lecture cohérente de toute
+l’archive, indépendamment de la page affichée. Les timestamps relatifs et les
+pistes sont conservés. Les fenêtres ASR encore en attente ou en erreur restent
+signalées ; on peut refaire l’export après rattrapage. Les fenêtres sans parole
+sont omises dans les versions lisibles et conservées avec leur statut dans le
+JSON. L’audio source n’est pas réécrit.
+
+Le JSON version 1 contient les métadonnées `session` et un tableau `segments`,
+avec `start_ms`, `end_ms`, `track`, `status`, `text` et `error`. Les timestamps
+peuvent avoir une partie décimale ; `track` vaut `microphone` ou `system`.
+Ces pistes ne sont pas des identités de participants : la V1 ne fait pas de
+diarization individuelle des personnes distantes.
+
+AI suggestions transmet les nouveaux segments de texte finalisés et un résumé
+roulant au provider/modèle configuré dans Post Process. Aucun audio n’est envoyé
+par ce chemin. Au maximum une requête toutes les trente secondes, avec des
+fenêtres de contexte bornées, produit un résumé et jusqu’à trois suggestions.
+Les suggestions n’exécutent aucune action. Le résumé est consultable dans la
+session archivée. Désactiver le toggle arrête les requêtes et annule la tâche
+côté app, sans arrêter l’ASR local ni effacer les résultats déjà enregistrés.
+Après trois échecs consécutifs, les requêtes s’arrêtent ; désactiver puis
+réactiver le toggle permet de retenter. Ce chemin reste à valider sur le
+serveur FAST configuré, qui était inaccessible pendant les premiers essais.
+
+Les entrées General, History, Models, Advanced, Post Process, Debug et About
+restent toutes visibles, en plus de Meetings. Afficher Post Process ou Debug
+n’active pas leur option correspondante.
+
 ## Vérifications reproductibles
 
 ```sh
