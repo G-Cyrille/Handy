@@ -47,6 +47,7 @@
     },
     "ai": {
       "title": "Suggestions IA",
+      "description": "Envoie la transcription à {{provider}} pour un résumé et des suggestions. Aucune action exécutée.",
       "unconfigured": "Aucun fournisseur IA configuré",
       "off": "Désactivées",
       "count_one": "{{count}} suggestion",
@@ -92,6 +93,14 @@
       "failed": "Échouée"
     },
     "detail": {
+      "exportTranscript": "Exporter la transcription",
+      "transcriptFormat": "Format de transcription",
+      "stopToExport": "Arrête la réunion avant de l’exporter.",
+      "transcriptFormats": {
+        "markdown": "Markdown (.md)",
+        "text": "Texte brut (.txt)",
+        "json": "JSON (.json)"
+      },
       "export": "Exporter en M4A",
       "exporting": "Export…",
       "reveal": "Afficher dans le dossier",

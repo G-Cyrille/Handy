@@ -644,6 +644,7 @@ fn command_bindings() -> Builder<tauri::Wry> {
             commands::meetings::set_meeting_ai,
             commands::meetings::retry_meeting_asr,
             commands::meetings::export_meeting_audio,
+            commands::meetings::export_meeting_transcript,
             commands::meetings::open_meeting_folder,
             shortcut::change_binding,
             shortcut::reset_binding,

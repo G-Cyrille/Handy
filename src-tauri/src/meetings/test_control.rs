@@ -1,6 +1,11 @@
 //! Debug-only IPC for reproducible tests of the separately signed test bundle.
 //! Responses stay in its own data directory; this endpoint is absent in release.
-use super::{capture::CaptureSelection, insights::write_json, MeetingManager};
+use super::{
+    archive::{TranscriptFormat, TranscriptLabels},
+    capture::CaptureSelection,
+    insights::write_json,
+    MeetingManager,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -32,6 +37,11 @@ enum Operation {
     },
     Export {
         id: String,
+    },
+    ExportTranscript {
+        id: String,
+        format: TranscriptFormat,
+        labels: TranscriptLabels,
     },
     Ai {
         enabled: bool,
@@ -118,6 +128,10 @@ fn execute(app: &AppHandle, operation: Operation) -> Result<Value, String> {
             serde_json::to_value(manager.detail(&id, offset, 100)?).map_err(|e| e.to_string())
         }
         Operation::Export { id } => Ok(json!(manager.export(&id)?)),
+        Operation::ExportTranscript { id, format, labels } => Ok(json!(manager
+            .store
+            .export_transcript(&id, format, &labels)?
+            .to_string_lossy())),
         Operation::Ai { enabled } => {
             manager.set_ai(enabled)?;
             Ok(Value::Null)

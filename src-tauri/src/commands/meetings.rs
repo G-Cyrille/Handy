@@ -1,3 +1,4 @@
+use crate::meetings::archive::{TranscriptFormat, TranscriptLabels};
 use crate::meetings::capture::{self, CaptureSelection, CaptureSources};
 use crate::meetings::{archive::Session, MeetingDetail, MeetingManager, MeetingSnapshot};
 use std::sync::Arc;
@@ -81,6 +82,24 @@ pub async fn export_meeting_audio(app: AppHandle, id: String) -> Result<String, 
     tauri::async_runtime::spawn_blocking(move || manager(&app)?.export(&id))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn export_meeting_transcript(
+    app: AppHandle,
+    id: String,
+    format: TranscriptFormat,
+    labels: TranscriptLabels,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        manager(&app)?
+            .store
+            .export_transcript(&id, format, &labels)
+            .map(|path| path.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

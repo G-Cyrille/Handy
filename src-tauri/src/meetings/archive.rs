@@ -19,6 +19,9 @@
 //! then indexed at startup). Sessions still `recording` at startup become
 //! `interrupted`. Meeting sessions are independent from dictation history retention.
 
+mod transcript;
+pub use transcript::{TranscriptFormat, TranscriptLabels};
+
 use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::BufWriter;

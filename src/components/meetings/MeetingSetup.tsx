@@ -202,7 +202,9 @@ export const MeetingSetup: React.FC<MeetingSetupProps> = ({
           label={t("meetings.ai.title")}
           description={
             aiConfigured
-              ? `${snapshot.provider} · ${snapshot.model}`
+              ? t("meetings.ai.description", {
+                  provider: `${snapshot.provider} · ${snapshot.model}`,
+                })
               : t("meetings.ai.unconfigured")
           }
           descriptionMode="inline"

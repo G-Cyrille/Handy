@@ -69,6 +69,14 @@ async exportMeetingAudio(id: string) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async exportMeetingTranscript(id: string, format: TranscriptFormat, labels: TranscriptLabels) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_meeting_transcript", { id, format, labels }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async openMeetingFolder(id: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("open_meeting_folder", { id }) };
@@ -1329,6 +1337,11 @@ overlapped_samples: number;
  */
 dropped_samples: number }
 export type TranscribeAcceleratorSetting = "auto" | "cpu" | "gpu"
+export type TranscriptFormat = "markdown" | "text" | "json"
+/**
+ * Labels come from the UI's translations; transcript text is never rewritten.
+ */
+export type TranscriptLabels = { title: string; microphone: string; system: string; pending: string; failed: string }
 export type TypingTool = "auto" | "wtype" | "kwtype" | "dotool" | "ydotool" | "xdotool"
 export type VadBackend = "silero" | "earshot"
 export type WindowsMicrophonePermissionStatus = { supported: boolean; overall_access: PermissionAccess; device_access: PermissionAccess; app_access: PermissionAccess; desktop_app_access: PermissionAccess }

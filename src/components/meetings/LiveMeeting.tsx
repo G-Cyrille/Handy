@@ -196,9 +196,11 @@ export const LiveMeeting: React.FC<LiveMeetingProps> = ({
         </div>
         <div className={OPS_ROW}>
           <span className="font-medium">{t("meetings.ai.title")}</span>
-          <span className="truncate text-text/70">
+          <span className="text-text/70">
             {aiConfigured
-              ? `${snapshot.provider} · ${snapshot.model}`
+              ? t("meetings.ai.description", {
+                  provider: `${snapshot.provider} · ${snapshot.model}`,
+                })
               : t("meetings.ai.unconfigured")}
           </span>
           <span className="flex items-center justify-end gap-3">

@@ -47,6 +47,7 @@
     },
     "ai": {
       "title": "AI suggestions",
+      "description": "Sends the transcript to {{provider}} for a summary and suggestions. No actions are executed.",
       "unconfigured": "No AI provider configured",
       "off": "Off",
       "count_one": "{{count}} suggestion",
@@ -92,6 +93,14 @@
       "failed": "Failed"
     },
     "detail": {
+      "exportTranscript": "Export transcript",
+      "transcriptFormat": "Transcript format",
+      "stopToExport": "Stop the meeting before exporting.",
+      "transcriptFormats": {
+        "markdown": "Markdown (.md)",
+        "text": "Plain text (.txt)",
+        "json": "JSON (.json)"
+      },
       "export": "Export M4A",
       "exporting": "Exporting…",
       "reveal": "Show in folder",

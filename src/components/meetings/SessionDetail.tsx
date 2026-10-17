@@ -2,7 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, FolderOpen } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { commands, type MeetingDetail } from "@/bindings";
+import {
+  commands,
+  type MeetingDetail,
+  type TranscriptFormat,
+} from "@/bindings";
 import { Button } from "../ui/Button";
 import {
   SEGMENT_PAGE_SIZE,
@@ -18,6 +22,11 @@ import { useSegmentPlayer } from "./useSegmentPlayer";
 
 /** While a page still has segments awaiting ASR, refresh it this often. */
 const PENDING_REFRESH_MS = 2_000;
+const TRANSCRIPT_FORMATS = [
+  "markdown",
+  "text",
+  "json",
+] as const satisfies readonly TranscriptFormat[];
 
 interface SessionDetailProps {
   sessionId: string;
@@ -34,9 +43,11 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({
   const [offset, setOffset] = useState(0);
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [action, setAction] = useState<"export" | "retry" | "folder" | null>(
-    null,
-  );
+  const [action, setAction] = useState<
+    "export" | "transcript" | "retry" | "folder" | null
+  >(null);
+  const [transcriptFormat, setTranscriptFormat] =
+    useState<TranscriptFormat>("markdown");
   const [actionError, setActionError] = useState<string | null>(null);
   const [exportPath, setExportPath] = useState<string | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -87,6 +98,21 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({
   const exportAudio = () =>
     run("export", async () => {
       setExportPath(await unwrap(commands.exportMeetingAudio(sessionId)));
+    });
+  const exportTranscript = () =>
+    run("transcript", async () => {
+      if (!detail) return;
+      const path = await unwrap(
+        commands.exportMeetingTranscript(sessionId, transcriptFormat, {
+          title: `${t("meetings.detail.transcript")} · ${formatSessionDate(detail.session.started_at_ms, i18n.language)}`,
+          microphone: t("meetings.track.microphone"),
+          system: t("meetings.track.system"),
+          pending: t("meetings.transcript.queued"),
+          failed: t("meetings.status.failed"),
+        }),
+      );
+      setExportPath(path);
+      await revealItemInDir(path);
     });
   const retry = () =>
     run("retry", async () => {
@@ -308,10 +334,47 @@ export const SessionDetail: React.FC<SessionDetailProps> = ({
 
       {session && detail && (
         <div ref={transcriptRef} className="space-y-2 scroll-mt-4">
-          <div className="px-4 flex items-center gap-2">
+          <div className="px-4 flex flex-wrap items-center gap-2">
             <h2 className="flex-1 text-xs font-medium text-mid-gray uppercase tracking-wide">
               {t("meetings.detail.transcript")}
             </h2>
+            <label>
+              <span className="sr-only">
+                {t("meetings.detail.transcriptFormat")}
+              </span>
+              <select
+                value={transcriptFormat}
+                disabled={action !== null}
+                onChange={(event) => {
+                  const selected = TRANSCRIPT_FORMATS.find(
+                    (format) => format === event.currentTarget.value,
+                  );
+                  if (selected) setTranscriptFormat(selected);
+                }}
+                className="rounded border border-mid-gray/30 bg-background px-2 py-1 text-sm"
+              >
+                {TRANSCRIPT_FORMATS.map((format) => (
+                  <option key={format} value={format}>
+                    {t(`meetings.detail.transcriptFormats.${format}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={exportTranscript}
+              disabled={action !== null || session.status === "recording"}
+              title={
+                session.status === "recording"
+                  ? t("meetings.detail.stopToExport")
+                  : undefined
+              }
+            >
+              {action === "transcript"
+                ? t("meetings.detail.exporting")
+                : t("meetings.detail.exportTranscript")}
+            </Button>
             {pager}
           </div>
           <div className="border border-mid-gray/20 rounded-lg">
