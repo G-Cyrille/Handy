@@ -1,5 +1,36 @@
 # Réunions V1 : validation du 15 octobre 2026
 
+## Complément du 18 octobre : exports et menus
+
+Build natif signé testé au commit `55ea552`, sur `feat/meetings-v1`.
+L'export est implémenté dans `57eb472` ; les menus sont restaurés dans
+`55ea552`. Ces changements ne valident pas l'endurance de quatre heures.
+
+- Les huit entrées sont présentes dans l'interface native : General, Meetings,
+  History, Models, Advanced, Post Process, Debug et About. La visibilité de ces
+  deux dernières fonctions ne dépend plus de leur activation dans les réglages.
+- Export Markdown, TXT et JSON vérifié par l'IPC du bundle signé, sans capture
+  ni appel IA, sur la session synthétique française `1792072795828`.
+  Les 18 segments JSON correspondent exactement à SQLite, dans le même ordre,
+  avec les mêmes textes, timestamps et pistes. Les exports texte contiennent
+  les textes attendus. Les empreintes des 18 WAV restent identiques.
+- Trois tests Rust ciblés réussissent, dont un export de 503 segments qui dépasse
+  les limites de pagination. Génération des bindings, Clippy, lint, build
+  TypeScript/Vite, format et vérification des traductions réussissent.
+- Le bundle passe `codesign --verify --deep --strict` et reste lancé depuis
+  son worktree. Les réglages quotidiens ont la même empreinte qu'avant le build ;
+  le checkout initial reste propre sur `feat/voxtral-q4`.
+- Pas de diarisation individuelle. Le toggle IA envoie le transcript finalisé
+  au provider/modèle de Post Process, avec contexte borné et résumé roulant,
+  pour produire un résumé et des suggestions sans exécuter d'actions. Le provider
+  réel n'a pas été revalidé pendant cette vérification d'export.
+
+Commandes reproductibles : `python3 scripts/meetings/build-test.py`, puis
+`open -n '/private/tmp/HandyFork-meetings/src-tauri/target/debug/bundle/macos/Handy Meetings Dev.app'`.
+Preuve locale : `/private/tmp/handy-meetings-transcript-native-result.json`.
+Le test natif utilise l'opération `export_transcript` de
+`scripts/meetings/control.py` pour les formats `markdown`, `text` et `json`.
+
 **Code instrumenté : `d433f4c`, branche `feat/meetings-v1`.**
 Le dernier essai d’endurance utilise `37fa0ab`, avec protection contre la veille.
 La version instrumentée est construite et passe un test court natif ; la cause
