@@ -20,6 +20,9 @@ mod memory;
 mod overlay;
 mod paste_tx;
 pub mod portable;
+mod screenshot;
+#[cfg(target_os = "macos")]
+mod screenshot_focus;
 mod secure_input;
 mod settings;
 mod shortcut;
@@ -222,6 +225,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         Err(error) => log::error!("Meeting archive initialization failed: {error}"),
     }
     app_handle.manage(tray::TrayState::new());
+    app_handle.manage(screenshot::ScreenshotContext::new());
     #[cfg(debug_assertions)]
     if let Some(request) = app_handle.state::<CliArgs>().meeting_control.as_ref() {
         meetings::test_control::dispatch(app_handle, request);
@@ -690,6 +694,10 @@ fn command_bindings() -> Builder<tauri::Wry> {
             shortcut::resume_all_bindings,
             shortcut::change_mute_while_recording_setting,
             shortcut::change_append_trailing_space_setting,
+            shortcut::change_screenshot_context_enabled_setting,
+            shortcut::change_screenshot_cursor_highlight_setting,
+            shortcut::change_screenshot_focus_highlight_setting,
+            shortcut::change_screenshot_capture_scope_setting,
             shortcut::change_lazy_stream_close_setting,
             shortcut::change_vad_enabled_setting,
             shortcut::change_vad_backend_setting,
@@ -760,6 +768,8 @@ fn command_bindings() -> Builder<tauri::Wry> {
             commands::history::get_history_entries,
             commands::history::toggle_history_entry_saved,
             commands::history::get_audio_file_path,
+            commands::history::get_history_screenshot,
+            commands::history::copy_history_screenshot,
             commands::history::delete_history_entry,
             commands::history::retry_history_entry_transcription,
             commands::history::update_history_limit,
@@ -819,12 +829,12 @@ pub fn run(cli_args: CliArgs) {
 
     #[cfg(debug_assertions)]
     if context.config().identifier != test_build::IDENTIFIER {
-        specta_builder
-            .export(
-                Typescript::default().bigint(BigIntExportBehavior::Number),
-                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts"),
-            )
-            .expect("Failed to export typescript bindings");
+        if let Err(error) = specta_builder.export(
+            Typescript::default().bigint(BigIntExportBehavior::Number),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts"),
+        ) {
+            eprintln!("Warning: failed to export TypeScript bindings: {error}");
+        }
     }
 
     let invoke_handler = specta_builder.invoke_handler();

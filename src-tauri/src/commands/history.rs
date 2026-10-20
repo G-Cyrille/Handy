@@ -1,10 +1,35 @@
 use crate::actions::process_transcription_output;
 use crate::managers::{
-    history::{HistoryManager, PaginatedHistory},
+    history::{HistoryEntry, HistoryManager, PaginatedHistory},
     transcription::TranscriptionManager,
 };
+use crate::screenshot::CapturedScreenshot;
+use log::warn;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
+
+/// Load the screenshot persisted with an entry so a retry can reuse its visual
+/// context. Missing or corrupt files degrade to text-only.
+fn load_history_screenshot(
+    history_manager: &HistoryManager,
+    entry: &HistoryEntry,
+) -> Option<CapturedScreenshot> {
+    let path = history_manager.get_screenshot_file_path(entry)?;
+    match std::fs::read(&path) {
+        Ok(bytes) => {
+            let mut screenshot = CapturedScreenshot::from_jpeg(bytes)?;
+            screenshot.load_monitor_images(&path);
+            Some(screenshot)
+        }
+        Err(err) => {
+            warn!(
+                "Screenshot for history entry {} is unavailable: {}",
+                entry.id, err
+            );
+            None
+        }
+    }
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -44,6 +69,59 @@ pub async fn get_audio_file_path(
     path.to_str()
         .ok_or_else(|| "Invalid file path".to_string())
         .map(|s| s.to_string())
+}
+
+/// Stored panorama and individual monitors as JPEG data URLs.
+/// Looked up by entry id so the frontend never names a file.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_history_screenshot(
+    _app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+    id: i64,
+) -> Result<Vec<String>, String> {
+    let entry = history_manager
+        .get_entry_by_id(id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("History entry {} not found", id))?;
+
+    load_history_screenshot(&history_manager, &entry)
+        .map(|screenshot| screenshot.history_data_urls())
+        .ok_or_else(|| format!("History entry {} has no readable screenshot", id))
+}
+
+/// Copy decoded pixels, so other applications receive an image rather than a URL.
+#[tauri::command]
+#[specta::specta]
+pub async fn copy_history_screenshot(
+    app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+    id: i64,
+    index: usize,
+) -> Result<(), String> {
+    use tauri_plugin_clipboard_manager::ClipboardExt;
+    let entry = history_manager
+        .get_entry_by_id(id)
+        .await
+        .map_err(|err| err.to_string())?
+        .ok_or("History entry not found")?;
+    let screenshot =
+        load_history_screenshot(&history_manager, &entry).ok_or("Screenshot unavailable")?;
+    let jpeg = screenshot
+        .history_image(index)
+        .ok_or("Screenshot index out of range")?;
+    let rgba = image::load_from_memory_with_format(jpeg, image::ImageFormat::Jpeg)
+        .map_err(|err| err.to_string())?
+        .to_rgba8();
+    let (width, height) = rgba.dimensions();
+    app.clipboard()
+        .write_image(&tauri::image::Image::new_owned(
+            rgba.into_raw(),
+            width,
+            height,
+        ))
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -93,8 +171,14 @@ pub async fn retry_history_entry_transcription(
         return Err("Recording contains no speech".to_string());
     }
 
-    let processed =
-        process_transcription_output(&app, &transcription, entry.post_process_requested).await;
+    let screenshot = load_history_screenshot(&history_manager, &entry);
+    let processed = process_transcription_output(
+        &app,
+        &transcription,
+        entry.post_process_requested,
+        screenshot.as_ref(),
+    )
+    .await;
     history_manager
         .update_transcription(
             id,

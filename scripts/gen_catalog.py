@@ -37,7 +37,7 @@ def acc_from_wer(wer):
     return None if wer is None else round(100 * math.exp(-wer / ACC_SCALE))
 
 # ───────────────────────── curation (CJ owns; editorial, not derivable) ──────
-# slug -> {rank?, rec?, desc?, use_case?, default_quant?, hidden?}.  All optional.
+# slug -> {rank?, rec?, desc?, use_case?, default_quant?, additional_quants?, hidden?}.
 # desc is hand-written UI copy; models without one use factual generated summaries.
 # rank = editorial sort position (broad ordering). rec = the small "Recommended"
 # badge / onboarding subset — independent of rank, so a model can rank high
@@ -49,7 +49,7 @@ CURATION = {
     "cohere-transcribe-03-2026":       {"rank": 4, "rec": True, "desc": "Highest accuracy, 14 languages, slower"},
     "whisper-medium":                  {"rank": 5, "rec": True, "desc": "Broadest language, but may run a bit slow"},
     # ranked (sorted high) but NOT tagged recommended
-    "Voxtral-Mini-4B-Realtime-2602":   {"rank": 6, "desc": "Live multilingual, excellent on powerful machines"},
+    "Voxtral-Mini-4B-Realtime-2602":   {"rank": 6, "desc": "Live multilingual, excellent on powerful machines", "additional_quants": ["Q4_K_M"]},
     "parakeet-tdt-0.6b-v3":            {"rank": 7, "desc": "Fast and accurate. Supports 25 European languages"},
     "parakeet-tdt-0.6b-v2":            {"rank": 8, "desc": "English only. The best model for English speakers"},
     "Qwen3-ASR-0.6B":                  {"rank": 9, "desc": "Excellent multilingual model"},
@@ -255,6 +255,7 @@ def build(repo):
         "accuracy_score": acc_from_wer(hw),
         "files": files,
         "default_quant": default_quant,
+        **({"additional_quants": cur["additional_quants"]} if cur.get("additional_quants") else {}),
         "recommended": bool(cur.get("rec")),         # small badge/onboarding subset
         "recommended_rank": cur.get("rank"),          # editorial sort position (independent)
     }

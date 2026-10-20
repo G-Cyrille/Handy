@@ -82,6 +82,13 @@ Control Handy from [Raycast](https://www.raycast.com) — start/stop recording, 
 
 [Source](https://github.com/mattiacolombomc/raycast-handy) · by [@mattiacolombomc](https://github.com/mattiacolombomc)
 
+### Voxtral quantization
+
+In **Settings → Models**, Voxtral Mini 4B Realtime offers the default Q5_K_M
+and a smaller **Voxtral Mini 4B Realtime (Q4_K_M)** download. Download either
+version, then select it to transcribe. Both can remain installed; deleting one
+preserves the other. Q4_K_M uses a 2.83 GB model file instead of 3.28 GB for Q5_K_M.
+
 ### Debug Mode
 
 Handy includes an advanced debug mode for development and troubleshooting. Access it by pressing:

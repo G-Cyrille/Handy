@@ -135,6 +135,7 @@ async fn complete(
         Some(SYSTEM_PROMPT.into()),
         provider.supports_structured_output.then_some(schema),
         true,
+        None,
     )
     .await?;
     let text = response.ok_or("The meeting AI returned no content")?;
