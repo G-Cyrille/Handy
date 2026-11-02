@@ -20,7 +20,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { notify } from "@/stores/noticeStore";
 import {
   commands,
   events,
@@ -238,12 +238,12 @@ export const HistorySettings: React.FC = () => {
     try {
       const result = await commands.deleteHistoryEntry(id);
       if (result.status !== "ok") {
-        // Reload on failure
-        loadPage();
+        throw new Error(String(result.error));
       }
     } catch (error) {
       console.error("Failed to delete entry:", error);
       loadPage();
+      throw error;
     }
   };
 
@@ -252,7 +252,7 @@ export const HistorySettings: React.FC = () => {
       await pickAndTranscribeFiles();
     } catch (error) {
       console.error("Failed to pick a file to transcribe:", error);
-      toast.error(t("settings.history.transcribeFailed"));
+      notify({ title: t("settings.history.transcribeFailed") });
     }
   };
 
@@ -399,7 +399,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
 
     const copied = await onCopyText();
     if (!copied) {
-      toast.error(t("settings.history.copyError"));
+      notify({ title: t("settings.history.copyError") });
       return;
     }
 
@@ -412,7 +412,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
       await deleteAudio(entry.id);
     } catch (error) {
       console.error("Failed to delete entry:", error);
-      toast.error(t("settings.history.deleteError"));
+      notify({ title: t("settings.history.deleteError") });
     }
   };
 

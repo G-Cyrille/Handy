@@ -53,7 +53,7 @@ impl TranscriptionManager {
         let Some(lease) = self.background_lease(control) else {
             return Ok(None);
         };
-        self.initiate_model_load();
+        self.initiate_model_load(false);
         // Read once: the model can't change until the job ends.
         let BatchContext {
             settings,
