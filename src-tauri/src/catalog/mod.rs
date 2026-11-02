@@ -292,6 +292,11 @@ impl From<&CatalogModel> for ModelDescriptor {
             },
             files,
             default_quant: Some(m.quant.clone()),
+            additional_quants: if m.id == "Voxtral-Mini-4B-Realtime-2602" {
+                vec!["Q4_K_M".to_string()]
+            } else {
+                Vec::new()
+            },
             // ModelInfo / the UI bars use 0.0–1.0.
             speed_score: speed_score(results) / 100.0,
             accuracy_score: accuracy_score(m, results) / 100.0,
@@ -467,12 +472,19 @@ pub fn file_in_catalog(
     })
 }
 
-/// Editorial recommended rank keyed by descriptor id (the same id the model
-/// registry uses). Built once from the catalog.
+/// Editorial rank for each curated download, so a model's quantizations sort
+/// together. Built once from the catalog.
 static RANK_BY_ID: Lazy<HashMap<String, u32>> = Lazy::new(|| {
     CATALOG
         .iter()
-        .filter_map(|d| d.recommended_rank.map(|r| (d.id.clone(), r)))
+        .flat_map(|d| {
+            d.downloadable_files().filter_map(|file| {
+                d.recommended_rank.map(|rank| {
+                    let model = d.to_model_info_for_file(file, &Default::default());
+                    (model.id, rank)
+                })
+            })
+        })
         .collect()
 });
 

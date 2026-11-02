@@ -16,7 +16,8 @@
     "postProcessing": "Naverwerking",
     "history": "Geschiedenis",
     "debug": "Probleemoplossing",
-    "about": "Over Handy"
+    "about": "Over Handy",
+    "meetings": "Meetings"
   },
   "onboarding": {
     "customModelDescription": "Niet officieel ondersteund",
@@ -345,6 +346,10 @@
           "transcribe_with_post_process": {
             "name": "Sneltoets voor naverwerking",
             "description": "Optioneel: Een specifieke sneltoets die altijd AI-naverwerking toepast op je transcriptie."
+          },
+          "meeting": {
+            "name": "Meeting Shortcut",
+            "description": "Start or stop a meeting. Opens the Meetings tab."
           }
         },
         "errors": {
@@ -625,6 +630,30 @@
       "hotkey": {
         "title": "Sneltoets"
       },
+      "context": {
+        "title": "Context",
+        "screenshot": {
+          "label": "Schermafbeeldingscontext",
+          "description": "Stuurt visuele context mee met elke nabewerkte transcriptie. Vereist de toestemming Schermopname.",
+          "permissionMissing": "Sta Handy toe onder Systeeminstellingen › Privacy en beveiliging › Schermopname en herstart Handy daarna.",
+          "scope": {
+            "label": "Schermen vastleggen",
+            "description": "Legt het scherm onder de cursor vast of voegt alle actieve schermen samen tot één afbeelding.",
+            "options": {
+              "currentMonitor": "Huidig scherm",
+              "allMonitors": "Alle schermen"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Cursor vergroten",
+            "description": "Toont een grotere, contrastrijke aanwijzer op de cursorpositie tijdens de opname."
+          },
+          "focusHighlight": {
+            "label": "Actief tekstveld omlijnen",
+            "description": "Omlijnt het actieve tekstveld bij de opname als Toegankelijkheid de positie geeft. Het plakdoel kan tijdens het dicteren veranderen."
+          }
+        }
+      },
       "api": {
         "title": "API",
         "provider": {
@@ -710,7 +739,27 @@
       "showMore": "Meer tonen",
       "showLess": "Minder tonen",
       "dropTitle": "Loslaten om te transcriberen",
-      "dropDescription": "Het verschijnt in de geschiedenis."
+      "dropDescription": "Het verschijnt in de geschiedenis.",
+      "screenshot": {
+        "view": "Schermafbeelding bekijken",
+        "title": "Schermafbeelding",
+        "loading": "Schermafbeelding laden...",
+        "unavailable": "Schermafbeelding niet beschikbaar.",
+        "close": "Sluiten",
+        "alt": "Schermafbeelding verzonden met deze transcriptie",
+        "selectImage": "Afbeelding",
+        "panorama": "Panorama",
+        "monitor": "Scherm {{number}}",
+        "zoomOut": "Uitzoomen",
+        "zoomIn": "Inzoomen",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Passend",
+        "copy": "Afbeelding kopiëren",
+        "copied": "Afbeelding gekopieerd",
+        "copyFailed": "Kopiëren mislukt",
+        "navigation": "Afbeelding: sleep om te bewegen, + en - om te zoomen, 0 voor passend"
+      }
     },
     "debug": {
       "title": "Probleemoplossing",
@@ -970,5 +1019,103 @@
     "learnMore": "Hoe je dit oplost",
     "recorderBlocked": "Sneltoetsen kunnen nu niet worden opgenomen — Secure Input van macOS blokkeert toetsgebeurtenissen. Los eerst de Secure Input-waarschuwing op.",
     "dismiss": "Sluiten"
+  },
+  "meetings": {
+    "loading": "Loading…",
+    "snapshotError": "Couldn't read the meeting state: {{error}}",
+    "tabs": {
+      "capture": "Meeting",
+      "sessions": "Sessions"
+    },
+    "setup": {
+      "title": "New meeting",
+      "microphone": "Microphone",
+      "microphoneDescription": "Recorded as its own track.",
+      "microphonePlaceholder": "Choose a microphone",
+      "system": "Computer audio",
+      "systemDescription": "Recorded as a second track. An app is recorded whole, with all its tabs and windows.",
+      "systemPlaceholder": "Choose a source",
+      "allApps": "All apps",
+      "refresh": "Refresh sources",
+      "unsupported": "Not available on this system",
+      "captureAll": "Two tracks: {{microphone}}, and all audio playing on this computer. Voices are not separated by speaker.",
+      "captureApp": "Two tracks: {{microphone}}, and all audio from {{app}}, every tab and window included. Voices are not separated by speaker.",
+      "start": "Start",
+      "starting": "Starting…",
+      "startError": "Couldn't start: {{error}}",
+      "screenAwake": "The screen stays awake during capture. Locking or sleeping the Mac can stop it.",
+      "sourcesError": "Couldn't list audio sources: {{error}}"
+    },
+    "ai": {
+      "title": "AI suggestions",
+      "description": "Sends the transcript to {{provider}} for a summary and suggestions. No actions are executed.",
+      "unconfigured": "No AI provider configured",
+      "off": "Off",
+      "count_one": "{{count}} suggestion",
+      "count_other": "{{count}} suggestions",
+      "toggleError": "Couldn't change AI suggestions: {{error}}"
+    },
+    "live": {
+      "recording": "Recording",
+      "stop": "Stop",
+      "stopping": "Stopping…",
+      "stopError": "Couldn't stop: {{error}}",
+      "transcription": "Transcription",
+      "upToDate": "Up to date",
+      "behind": "{{duration}} behind",
+      "waiting": "Waiting for audio",
+      "stalled": "No audio for {{duration}}",
+      "empty": "The transcript appears here as people speak.",
+      "truncated": "Showing the last {{count}} lines. The full transcript is in Sessions.",
+      "transcriptError": "Couldn't load the transcript: {{error}}"
+    },
+    "track": {
+      "microphone": "Mic",
+      "system": "System",
+      "unknown": "Track {{track}}"
+    },
+    "transcript": {
+      "play": "Play segment",
+      "pause": "Pause",
+      "queued": "Waiting for transcription",
+      "provisional": "Provisional, may still change",
+      "failed": "Transcription failed: {{error}}",
+      "playbackError": "Couldn't play this segment: {{error}}",
+      "noSpeech": "No speech detected. Audio preserved."
+    },
+    "sessions": {
+      "empty": "No meetings yet.",
+      "back": "Sessions"
+    },
+    "status": {
+      "recording": "Recording",
+      "completed": "Completed",
+      "interrupted": "Interrupted",
+      "failed": "Failed"
+    },
+    "detail": {
+      "exportTranscript": "Export transcript",
+      "transcriptFormat": "Transcript format",
+      "stopToExport": "Stop the meeting before exporting.",
+      "transcriptFormats": {
+        "markdown": "Markdown (.md)",
+        "text": "Plain text (.txt)",
+        "json": "JSON (.json)"
+      },
+      "export": "Export M4A",
+      "exporting": "Exporting…",
+      "reveal": "Show in folder",
+      "openFolder": "Open folder",
+      "retry": "Retry transcription",
+      "retrying": "Retrying…",
+      "transcript": "Transcript",
+      "previous": "Previous",
+      "next": "Next",
+      "range": "{{from}}–{{to}}",
+      "empty": "No transcript.",
+      "loadError": "Couldn't load this meeting: {{error}}",
+      "trackStats": "{{track}}: {{padding}} ms without received audio, {{dropped}} dropped samples, {{overlap}} overlapping samples.",
+      "exportChannels": "Stereo export: microphone on the left, system audio on the right."
+    }
   }
 }

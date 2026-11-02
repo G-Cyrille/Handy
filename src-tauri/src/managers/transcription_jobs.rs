@@ -307,10 +307,12 @@ impl TranscriptionJobManager {
             return Ok(());
         }
 
+        let screenshot = crate::commands::history::load_history_screenshot(&hm, &entry);
         let processed = tauri::async_runtime::block_on(process_transcription_output(
             &self.app,
             &text,
             entry.post_process_requested,
+            screenshot.as_ref(),
         ));
         // Post-processing can take a while; a cancel during it still wins.
         if cancelled.load(Ordering::Acquire) {

@@ -50,6 +50,9 @@ impl TranscriptionManager {
         }
 
         self.touch_activity();
+        let Some(lease) = self.background_lease(control) else {
+            return Ok(None);
+        };
         self.initiate_model_load();
         // Read once: the model can't change until the job ends.
         let BatchContext {
@@ -58,6 +61,7 @@ impl TranscriptionManager {
             setup,
             ..
         } = self.batch_context(&audio)?;
+        drop(lease);
 
         let backend = settings.vad_backend;
         let app_handle = self.app_handle.clone();
@@ -83,6 +87,9 @@ impl TranscriptionManager {
                     if !control.proceed() {
                         return Ok(None);
                     }
+                    let Some(_lease) = self.background_lease(control) else {
+                        return Ok(None);
+                    };
                     attempts += 1;
                     // A fresh mark per chunk: a dictation's cancel stops only
                     // the chunk it caught, which is then tried again.
@@ -134,5 +141,19 @@ impl TranscriptionManager {
             text: paragraphs.join("\n\n"),
             language: Some(language),
         }))
+    }
+
+    /// File chunks share the meeting queue, yielding to dictation between runs.
+    fn background_lease(
+        &self,
+        control: &dyn ChunkControl,
+    ) -> Option<crate::asr_scheduler::Lease<'_>> {
+        while control.proceed() {
+            if let Some(lease) = self.scheduler.try_background() {
+                return Some(lease);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        None
     }
 }

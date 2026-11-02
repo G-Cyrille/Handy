@@ -747,11 +747,14 @@ fn start(app: &AppHandle, binding_id: &str, hotkey_string: &str) -> bool {
         warn!("No action in ACTION_MAP for '{binding_id}'");
         return false;
     };
+    let tm = app.state::<Arc<crate::managers::transcription::TranscriptionManager>>();
+    tm.reserve_dictation();
     action.start(app, binding_id, hotkey_string);
     let recording = app
         .try_state::<Arc<AudioRecordingManager>>()
         .is_some_and(|a| a.is_recording());
     if !recording {
+        tm.finish_dictation();
         debug!("Start for '{binding_id}' did not begin recording; staying idle");
     }
     recording

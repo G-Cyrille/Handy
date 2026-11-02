@@ -16,7 +16,8 @@
     "postProcessing": "Pascaproses",
     "history": "Riwayat",
     "debug": "Debug",
-    "about": "Tentang"
+    "about": "Tentang",
+    "meetings": "Meetings"
   },
   "onboarding": {
     "customModelDescription": "Tidak didukung secara resmi",
@@ -345,6 +346,10 @@
           "transcribe_with_post_process": {
             "name": "Pintasan Pascaproses",
             "description": "Opsional: pintasan khusus yang selalu menerapkan pascaproses AI pada transkripsi Anda."
+          },
+          "meeting": {
+            "name": "Meeting Shortcut",
+            "description": "Start or stop a meeting. Opens the Meetings tab."
           }
         },
         "errors": {
@@ -625,6 +630,30 @@
       "hotkey": {
         "title": "Pintasan"
       },
+      "context": {
+        "title": "Konteks",
+        "screenshot": {
+          "label": "Konteks tangkapan layar",
+          "description": "Mengirim konteks visual bersama setiap transkripsi yang dipascaproses. Memerlukan izin Perekaman Layar.",
+          "permissionMissing": "Izinkan Handy di Pengaturan Sistem › Privasi & Keamanan › Perekaman Layar, lalu mulai ulang Handy.",
+          "scope": {
+            "label": "Layar yang ditangkap",
+            "description": "Menangkap monitor di bawah kursor atau menggabungkan semua monitor aktif menjadi satu gambar.",
+            "options": {
+              "currentMonitor": "Monitor saat ini",
+              "allMonitors": "Semua monitor"
+            }
+          },
+          "cursorHighlight": {
+            "label": "Perbesar kursor",
+            "description": "Tampilkan penunjuk yang lebih besar dan kontras pada posisi kursor saat ditangkap."
+          },
+          "focusHighlight": {
+            "label": "Bingkai kolom aktif",
+            "description": "Bingkai kolom teks aktif saat ditangkap jika Aksesibilitas memberikan posisinya. Tujuan tempel dapat berubah selama dikte."
+          }
+        }
+      },
       "api": {
         "title": "API",
         "provider": {
@@ -710,7 +739,27 @@
       "showMore": "Tampilkan lebih banyak",
       "showLess": "Tampilkan lebih sedikit",
       "dropTitle": "Lepaskan untuk mentranskripsi",
-      "dropDescription": "Akan muncul di Riwayat."
+      "dropDescription": "Akan muncul di Riwayat.",
+      "screenshot": {
+        "view": "Lihat tangkapan layar",
+        "title": "Tangkapan layar",
+        "loading": "Memuat tangkapan layar...",
+        "unavailable": "Tangkapan layar tidak tersedia.",
+        "close": "Tutup",
+        "alt": "Tangkapan layar yang dikirim bersama transkripsi ini",
+        "selectImage": "Gambar",
+        "panorama": "Panorama",
+        "monitor": "Layar {{number}}",
+        "zoomOut": "Perkecil",
+        "zoomIn": "Perbesar",
+        "zoomLevel": "Zoom",
+        "actualSize": "100%",
+        "fit": "Sesuaikan",
+        "copy": "Salin gambar",
+        "copied": "Gambar disalin",
+        "copyFailed": "Tidak dapat menyalin gambar",
+        "navigation": "Gambar: seret untuk menggeser, + dan - untuk zoom, 0 untuk menyesuaikan"
+      }
     },
     "debug": {
       "title": "Debug",
@@ -970,5 +1019,103 @@
     "learnMore": "Cara memperbaiki",
     "recorderBlocked": "Pintasan tidak dapat direkam saat ini — macOS Secure Input memblokir peristiwa tombol. Selesaikan peringatan Secure Input terlebih dahulu.",
     "dismiss": "Tutup"
+  },
+  "meetings": {
+    "loading": "Loading…",
+    "snapshotError": "Couldn't read the meeting state: {{error}}",
+    "tabs": {
+      "capture": "Meeting",
+      "sessions": "Sessions"
+    },
+    "setup": {
+      "title": "New meeting",
+      "microphone": "Microphone",
+      "microphoneDescription": "Recorded as its own track.",
+      "microphonePlaceholder": "Choose a microphone",
+      "system": "Computer audio",
+      "systemDescription": "Recorded as a second track. An app is recorded whole, with all its tabs and windows.",
+      "systemPlaceholder": "Choose a source",
+      "allApps": "All apps",
+      "refresh": "Refresh sources",
+      "unsupported": "Not available on this system",
+      "captureAll": "Two tracks: {{microphone}}, and all audio playing on this computer. Voices are not separated by speaker.",
+      "captureApp": "Two tracks: {{microphone}}, and all audio from {{app}}, every tab and window included. Voices are not separated by speaker.",
+      "start": "Start",
+      "starting": "Starting…",
+      "startError": "Couldn't start: {{error}}",
+      "screenAwake": "The screen stays awake during capture. Locking or sleeping the Mac can stop it.",
+      "sourcesError": "Couldn't list audio sources: {{error}}"
+    },
+    "ai": {
+      "title": "AI suggestions",
+      "description": "Sends the transcript to {{provider}} for a summary and suggestions. No actions are executed.",
+      "unconfigured": "No AI provider configured",
+      "off": "Off",
+      "count_one": "{{count}} suggestion",
+      "count_other": "{{count}} suggestions",
+      "toggleError": "Couldn't change AI suggestions: {{error}}"
+    },
+    "live": {
+      "recording": "Recording",
+      "stop": "Stop",
+      "stopping": "Stopping…",
+      "stopError": "Couldn't stop: {{error}}",
+      "transcription": "Transcription",
+      "upToDate": "Up to date",
+      "behind": "{{duration}} behind",
+      "waiting": "Waiting for audio",
+      "stalled": "No audio for {{duration}}",
+      "empty": "The transcript appears here as people speak.",
+      "truncated": "Showing the last {{count}} lines. The full transcript is in Sessions.",
+      "transcriptError": "Couldn't load the transcript: {{error}}"
+    },
+    "track": {
+      "microphone": "Mic",
+      "system": "System",
+      "unknown": "Track {{track}}"
+    },
+    "transcript": {
+      "play": "Play segment",
+      "pause": "Pause",
+      "queued": "Waiting for transcription",
+      "provisional": "Provisional, may still change",
+      "failed": "Transcription failed: {{error}}",
+      "playbackError": "Couldn't play this segment: {{error}}",
+      "noSpeech": "No speech detected. Audio preserved."
+    },
+    "sessions": {
+      "empty": "No meetings yet.",
+      "back": "Sessions"
+    },
+    "status": {
+      "recording": "Recording",
+      "completed": "Completed",
+      "interrupted": "Interrupted",
+      "failed": "Failed"
+    },
+    "detail": {
+      "exportTranscript": "Export transcript",
+      "transcriptFormat": "Transcript format",
+      "stopToExport": "Stop the meeting before exporting.",
+      "transcriptFormats": {
+        "markdown": "Markdown (.md)",
+        "text": "Plain text (.txt)",
+        "json": "JSON (.json)"
+      },
+      "export": "Export M4A",
+      "exporting": "Exporting…",
+      "reveal": "Show in folder",
+      "openFolder": "Open folder",
+      "retry": "Retry transcription",
+      "retrying": "Retrying…",
+      "transcript": "Transcript",
+      "previous": "Previous",
+      "next": "Next",
+      "range": "{{from}}–{{to}}",
+      "empty": "No transcript.",
+      "loadError": "Couldn't load this meeting: {{error}}",
+      "trackStats": "{{track}}: {{padding}} ms without received audio, {{dropped}} dropped samples, {{overlap}} overlapping samples.",
+      "exportChannels": "Stereo export: microphone on the left, system audio on the right."
+    }
   }
 }

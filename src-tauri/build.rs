@@ -2,6 +2,10 @@ fn main() {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     build_apple_intelligence_bridge();
 
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        build_meeting_capture_bridge();
+    }
+
     generate_tray_translations();
 
     // Linux ships transcribe-cpp as a shared libtranscribe + loadable ggml
@@ -563,4 +567,104 @@ fn is_command_line_tools_only() -> bool {
         .and_then(|out| String::from_utf8(out.stdout).ok())
         .map(|path| path.trim().ends_with("CommandLineTools"))
         .unwrap_or(false)
+}
+
+/// Build the audio-only ScreenCaptureKit bridge for both macOS architectures.
+/// Runtime availability guards keep the app launchable before macOS 15.
+fn build_meeting_capture_bridge() {
+    use std::{env, path::PathBuf, process::Command};
+
+    const SOURCE: &str = "swift/meeting_capture.swift";
+    const HEADER: &str = "swift/meeting_capture_bridge.h";
+    println!("cargo:rerun-if-changed={SOURCE}");
+    println!("cargo:rerun-if-changed={HEADER}");
+    for variable in ["SDKROOT", "SWIFTC", "MACOSX_DEPLOYMENT_TARGET"] {
+        println!("cargo:rerun-if-env-changed={variable}");
+    }
+    let xcrun = |args: &[&str]| {
+        let output = Command::new("xcrun")
+            .args(args)
+            .output()
+            .expect("locate meeting capture Swift toolchain with xcrun");
+        assert!(
+            output.status.success(),
+            "xcrun failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout)
+            .expect("UTF-8 toolchain path")
+            .trim()
+            .to_owned()
+    };
+    let sdk =
+        env::var("SDKROOT").unwrap_or_else(|_| xcrun(&["--sdk", "macosx", "--show-sdk-path"]));
+    let swiftc = env::var("SWIFTC").unwrap_or_else(|_| xcrun(&["--find", "swiftc"]));
+    let arch = match env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
+        Ok("aarch64") => "arm64",
+        Ok("x86_64") => "x86_64",
+        other => panic!("unsupported macOS meeting capture architecture: {other:?}"),
+    };
+    let deployment = env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| "11.0".into());
+    let target = format!("{arch}-apple-macosx{deployment}");
+    let out = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR"));
+    let object = out.join("meeting_capture.o");
+    let library = out.join("libmeeting_capture.a");
+    let status = Command::new(&swiftc)
+        .args([
+            "-parse-as-library",
+            "-target",
+            &target,
+            "-sdk",
+            &sdk,
+            "-O",
+            "-import-objc-header",
+            HEADER,
+            "-c",
+            SOURCE,
+            "-o",
+        ])
+        .arg(&object)
+        .arg("-module-cache-path")
+        .arg(out.join("meeting-swift-module-cache"))
+        .args([
+            "-Xfrontend",
+            "-disable-autolink-framework",
+            "-Xfrontend",
+            "ScreenCaptureKit",
+        ])
+        .status()
+        .expect("compile meeting capture Swift bridge");
+    assert!(
+        status.success(),
+        "swiftc failed to compile {SOURCE}; a macOS 15+ SDK is required"
+    );
+    let status = Command::new("libtool")
+        .arg("-static")
+        .arg("-o")
+        .arg(&library)
+        .arg(&object)
+        .status()
+        .expect("archive meeting capture Swift bridge");
+    assert!(status.success(), "libtool failed for meeting capture");
+    println!("cargo:rustc-link-search=native={}", out.display());
+    println!("cargo:rustc-link-lib=static=meeting_capture");
+    let swift_lib = PathBuf::from(&swiftc)
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("Swift toolchain root")
+        .join("lib/swift/macosx");
+    println!("cargo:rustc-link-search=native={}", swift_lib.display());
+    println!("cargo:rustc-link-search=native={sdk}/usr/lib/swift");
+    for framework in [
+        "Foundation",
+        "AVFoundation",
+        "AppKit",
+        "CoreMedia",
+        "CoreGraphics",
+        "AudioToolbox",
+    ] {
+        println!("cargo:rustc-link-lib=framework={framework}");
+    }
+    println!("cargo:rustc-link-arg=-Wl,-weak_framework,ScreenCaptureKit");
+    println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
 }

@@ -5,6 +5,86 @@
 
 
 export const commands = {
+async listMeetingSources() : Promise<Result<CaptureSources, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_meeting_sources") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getMeetingSnapshot() : Promise<Result<MeetingSnapshot, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_meeting_snapshot") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async startMeeting(selection: CaptureSelection, aiEnabled: boolean) : Promise<Result<Session, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_meeting", { selection, aiEnabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async stopMeeting() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_meeting") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getMeetingDetail(id: string, offset: number, limit: number) : Promise<Result<MeetingDetail, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_meeting_detail", { id, offset, limit }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setMeetingAi(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_meeting_ai", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async retryMeetingAsr(id: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("retry_meeting_asr", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async exportMeetingAudio(id: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_meeting_audio", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async exportMeetingTranscript(id: string, format: TranscriptFormat, labels: TranscriptLabels) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_meeting_transcript", { id, format, labels }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async openMeetingFolder(id: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_meeting_folder", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async changeBinding(id: string, binding: string) : Promise<Result<BindingResponse, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_binding", { id, binding }) };
@@ -378,6 +458,38 @@ async changeMuteWhileRecordingSetting(enabled: boolean) : Promise<Result<null, s
 async changeAppendTrailingSpaceSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_append_trailing_space_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeScreenshotContextEnabledSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_screenshot_context_enabled_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeScreenshotCursorHighlightSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_screenshot_cursor_highlight_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeScreenshotFocusHighlightSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_screenshot_focus_highlight_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeScreenshotCaptureScopeSetting(scope: ScreenshotCaptureScope) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_screenshot_capture_scope_setting", { scope }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -963,6 +1075,29 @@ async getAudioFilePath(fileName: string) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Stored panorama and individual monitors as JPEG data URLs.
+ * Looked up by entry id so the frontend never names a file.
+ */
+async getHistoryScreenshot(id: number) : Promise<Result<string[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_history_screenshot", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Copy decoded pixels, so other applications receive an image rather than a URL.
+ */
+async copyHistoryScreenshot(id: number, index: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("copy_history_screenshot", { id, index }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async deleteHistoryEntry(id: number) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_history_entry", { id }) };
@@ -1100,7 +1235,24 @@ selected_channel?: number | null; clamshell_microphone?: string | null; selected
  * Every language the person dictates in (codes, e.g. ["en", "zh"]),
  * picked during onboarding. Empty until then.
  */
-spoken_languages?: string[]; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; paste_method?: PasteMethod; clipboard_handling?: ClipboardHandling; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: SecretMap; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; mute_while_recording?: boolean; append_trailing_space?: boolean; app_language?: string; theme?: Theme; experimental_enabled?: boolean; lazy_stream_close?: boolean; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; paste_delay_ms?: number; paste_delay_after_ms?: number; 
+spoken_languages?: string[]; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; paste_method?: PasteMethod; clipboard_handling?: ClipboardHandling; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: SecretMap; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; 
+/**
+ * Attach screenshot context to post-processing requests (see
+ * `screenshot.rs`). Off by default; captures on macOS only.
+ */
+screenshot_context_enabled?: boolean; 
+/**
+ * Draw an enlarged pointer at the cursor position in screenshot context.
+ */
+screenshot_cursor_highlight?: boolean; 
+/**
+ * Outline the focused text input at capture time when Accessibility exposes it.
+ */
+screenshot_focus_highlight?: boolean; 
+/**
+ * Capture the monitor under the cursor or compose every active monitor.
+ */
+screenshot_capture_scope?: ScreenshotCaptureScope; mute_while_recording?: boolean; append_trailing_space?: boolean; app_language?: string; theme?: Theme; experimental_enabled?: boolean; lazy_stream_close?: boolean; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; paste_delay_ms?: number; paste_delay_after_ms?: number; 
 /**
  * Debug-gated ("beta") receipt-sequenced paste: restore the clipboard only
  * after the target app actually reads the transcript, instead of after a
@@ -1156,6 +1308,14 @@ export type AutoUnavailableReason =
 { kind: "no_match" }
 export type AvailableAccelerators = { transcribe: string[]; gpu_devices: GpuDeviceOption[] }
 export type BindingResponse = { success: boolean; binding: ShortcutBinding | null; error: string | null }
+export type CaptureApplication = { pid: number; name: string }
+export type CaptureDevice = { id: string; name: string }
+export type CaptureSelection = { microphone_id: string; 
+/**
+ * None captures the whole system; Some(pid) captures all that app's tabs.
+ */
+application_pid: number | null }
+export type CaptureSources = { microphones: CaptureDevice[]; applications: CaptureApplication[]; supported: boolean }
 /**
  * Script applied to Mandarin and Cantonese output. Traditional carries its region
  * (Taiwan vs Hong Kong forms, e.g. 裡/裏) rather than guessing it.
@@ -1189,7 +1349,11 @@ language: string | null;
 /**
  * How that language was chosen; `None` before it was recorded.
  */
-language_source: LanguageSource | null }
+language_source: LanguageSource | null; 
+/**
+ * Basename of the screenshot stored beside the recording.
+ */
+screenshot_file_name: string | null }
 export type HistoryUpdatePayload = { action: "added"; entry: HistoryEntry } | { action: "updated"; entry: HistoryEntry } | { action: "deleted"; id: number } | { action: "toggled"; id: number }
 /**
  * Result of changing keyboard implementation
@@ -1265,6 +1429,12 @@ export type LanguageStatus =
  */
 { kind: "auto_unavailable"; language: string; reason: AutoUnavailableReason }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
+export type MeetingDetail = { session: Session; segments: Segment[]; has_more: boolean; total_segments: number; track_stats: TrackStats[]; insights: MeetingInsights }
+export type MeetingInsights = { summary: string; suggestions: MeetingSuggestion[]; error: string | null; provider: string; model: string }
+export type MeetingPreferences = { selection: CaptureSelection | null; ai_enabled: boolean }
+export type MeetingSnapshot = { sessions: Session[]; active_id: string | null; elapsed_ms: number; tracks: MeetingTrackStatus[]; capture_error: string | null; pending: PendingTranscript | null; storage_path: string; provider: string; model: string; backlog_ms: number; buffered_samples: number; asr_last_duration_ms: number; asr_last_lag_ms: number; preferences: MeetingPreferences }
+export type MeetingSuggestion = { at_ms: number; text: string }
+export type MeetingTrackStatus = { track: number; received_samples: number; last_received_ms: number }
 export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; accuracy_score: number; speed_score: number; supports_translation: boolean; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_streaming: boolean; supports_language_detection: boolean }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
 /**
@@ -1302,6 +1472,7 @@ export type OverlayPosition = "top" | "bottom"
 export type OverlayStyle = "none" | "minimal" | "live"
 export type PaginatedHistory = { entries: HistoryEntry[]; has_more: boolean }
 export type PasteMethod = "ctrl_v" | "direct" | "none" | "shift_insert" | "ctrl_shift_v" | "external_script"
+export type PendingTranscript = { session_id: string; segment_id: number; track: number; start_sample: number; committed: string; tentative: string }
 export type PermissionAccess = "allowed" | "denied" | "unknown"
 /**
  * Request format a post-processing endpoint speaks. Built-in providers have a
@@ -1344,6 +1515,10 @@ export type RecordingStateEvent = { phase: RecordingPhase }
  * A retired ONNX model found on disk.
  */
 export type RetiredModel = { id: string; name: string; size_mb: number; replacement_repo: string }
+/**
+ * Which displays to include in screenshot context for AI post-processing.
+ */
+export type ScreenshotCaptureScope = "current_monitor" | "all_monitors"
 export type SecretMap = Partial<{ [key in string]: string }>
 export type SecureInputStatus = { 
 /**
@@ -1377,6 +1552,16 @@ uncovered_bindings: string[];
  * warning banner appears and explains why recording refused.
  */
 recorder_blocked: boolean }
+export type Segment = { id: number; session_id: string; track: number; start_sample: number; sample_count: number; 
+/**
+ * Absolute path inside the archive root.
+ */
+path: string; text: string | null; asr_error: string | null; asr_status: string }
+export type Session = { id: string; started_at_ms: number; duration_ms: number; 
+/**
+ * `recording`, `completed`, `interrupted` or `failed`.
+ */
+status: string; microphone: string; system: string; ai_enabled: boolean; error: string | null }
 /**
  * How the transcribe shortcut's key events drive a recording.
  */
@@ -1434,7 +1619,33 @@ export type StreamWorkKind = "transcribing" | "polishing"
  * and `Dark` force one of the two palettes Handy already ships.
  */
 export type Theme = "system" | "light" | "dark"
+/**
+ * Per-track sample accounting. `delivered + padded` is the track's written length.
+ */
+export type TrackStats = { track: number; 
+/**
+ * Samples received from capture callbacks and written.
+ */
+delivered_samples: number; 
+/**
+ * Zero samples inserted for gaps, missing callbacks and the tail.
+ */
+padded_samples: number; 
+/**
+ * Same-track samples discarded because they overlap audio already written.
+ */
+overlapped_samples: number; 
+/**
+ * Samples discarded because their window was sealed, they precede the origin,
+ * their timestamp was out of range, or a disk error prevented buffering them.
+ */
+dropped_samples: number }
 export type TranscribeAcceleratorSetting = "auto" | "cpu" | "gpu"
+export type TranscriptFormat = "markdown" | "text" | "json"
+/**
+ * Labels come from the UI's translations; transcript text is never rewritten.
+ */
+export type TranscriptLabels = { title: string; microphone: string; system: string; pending: string; failed: string }
 /**
  * Emitted when a dictation finishes (not on cancel); onboarding uses it to measure speed.
  */

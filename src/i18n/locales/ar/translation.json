@@ -16,7 +16,8 @@
     "postProcessing": "معالجة لاحقة",
     "history": "السجل",
     "debug": "تصحيح الأخطاء",
-    "about": "حول"
+    "about": "حول",
+    "meetings": "Meetings"
   },
   "onboarding": {
     "customModelDescription": "غير مدعوم رسميًا",
@@ -345,6 +346,10 @@
           "transcribe_with_post_process": {
             "name": "مفتاح المعالجة اللاحقة",
             "description": "اختياري: مفتاح اختصار مخصص يطبق دائماً المعالجة اللاحقة بالذكاء الاصطناعي على التفريغ الصوتي."
+          },
+          "meeting": {
+            "name": "Meeting Shortcut",
+            "description": "Start or stop a meeting. Opens the Meetings tab."
           }
         },
         "errors": {
@@ -625,6 +630,30 @@
       "hotkey": {
         "title": "مفتاح الاختصار"
       },
+      "context": {
+        "title": "السياق",
+        "screenshot": {
+          "label": "سياق لقطة الشاشة",
+          "description": "يرسل سياقًا مرئيًا مع كل نص تمت معالجته لاحقًا. يتطلب إذن تسجيل الشاشة.",
+          "permissionMissing": "اسمح لـ Handy في إعدادات النظام › الخصوصية والأمان › تسجيل الشاشة، ثم أعد تشغيل Handy.",
+          "scope": {
+            "label": "الشاشات المطلوب التقاطها",
+            "description": "يلتقط الشاشة الموجودة أسفل المؤشر أو يجمع كل الشاشات النشطة في صورة واحدة.",
+            "options": {
+              "currentMonitor": "الشاشة الحالية",
+              "allMonitors": "كل الشاشات"
+            }
+          },
+          "cursorHighlight": {
+            "label": "تكبير المؤشر",
+            "description": "يعرض مؤشراً أكبر وعالي التباين في موضع المؤشر وقت الالتقاط."
+          },
+          "focusHighlight": {
+            "label": "تحديد حقل النص النشط",
+            "description": "يحيط حقل النص النشط وقت الالتقاط إذا وفرت تسهيلات الاستخدام موضعه. قد تتغير وجهة اللصق أثناء الإملاء."
+          }
+        }
+      },
       "api": {
         "title": "API",
         "provider": {
@@ -710,7 +739,27 @@
       "showMore": "عرض المزيد",
       "showLess": "عرض أقل",
       "dropTitle": "أفلت الملف لنسخه",
-      "dropDescription": "سيظهر في السجل."
+      "dropDescription": "سيظهر في السجل.",
+      "screenshot": {
+        "view": "عرض لقطة الشاشة",
+        "title": "لقطة الشاشة",
+        "loading": "جارٍ تحميل لقطة الشاشة...",
+        "unavailable": "لقطة الشاشة غير متوفرة.",
+        "close": "إغلاق",
+        "alt": "لقطة الشاشة المرسلة مع هذا النص",
+        "selectImage": "الصورة",
+        "panorama": "بانوراما",
+        "monitor": "الشاشة {{number}}",
+        "zoomOut": "تصغير",
+        "zoomIn": "تكبير",
+        "zoomLevel": "التكبير",
+        "actualSize": "100%",
+        "fit": "ملاءمة",
+        "copy": "نسخ الصورة",
+        "copied": "تم نسخ الصورة",
+        "copyFailed": "تعذر نسخ الصورة",
+        "navigation": "الصورة: اسحب للتحريك، + و - للتكبير، 0 للملاءمة"
+      }
     },
     "debug": {
       "title": "تصحيح الأخطاء",
@@ -970,5 +1019,103 @@
     "learnMore": "كيفية الإصلاح",
     "recorderBlocked": "لا يمكن تسجيل الاختصارات الآن — يحجب Secure Input في macOS أحداث المفاتيح. عالج تحذير Secure Input أولاً.",
     "dismiss": "تجاهل"
+  },
+  "meetings": {
+    "loading": "Loading…",
+    "snapshotError": "Couldn't read the meeting state: {{error}}",
+    "tabs": {
+      "capture": "Meeting",
+      "sessions": "Sessions"
+    },
+    "setup": {
+      "title": "New meeting",
+      "microphone": "Microphone",
+      "microphoneDescription": "Recorded as its own track.",
+      "microphonePlaceholder": "Choose a microphone",
+      "system": "Computer audio",
+      "systemDescription": "Recorded as a second track. An app is recorded whole, with all its tabs and windows.",
+      "systemPlaceholder": "Choose a source",
+      "allApps": "All apps",
+      "refresh": "Refresh sources",
+      "unsupported": "Not available on this system",
+      "captureAll": "Two tracks: {{microphone}}, and all audio playing on this computer. Voices are not separated by speaker.",
+      "captureApp": "Two tracks: {{microphone}}, and all audio from {{app}}, every tab and window included. Voices are not separated by speaker.",
+      "start": "Start",
+      "starting": "Starting…",
+      "startError": "Couldn't start: {{error}}",
+      "screenAwake": "The screen stays awake during capture. Locking or sleeping the Mac can stop it.",
+      "sourcesError": "Couldn't list audio sources: {{error}}"
+    },
+    "ai": {
+      "title": "AI suggestions",
+      "description": "Sends the transcript to {{provider}} for a summary and suggestions. No actions are executed.",
+      "unconfigured": "No AI provider configured",
+      "off": "Off",
+      "count_one": "{{count}} suggestion",
+      "count_other": "{{count}} suggestions",
+      "toggleError": "Couldn't change AI suggestions: {{error}}"
+    },
+    "live": {
+      "recording": "Recording",
+      "stop": "Stop",
+      "stopping": "Stopping…",
+      "stopError": "Couldn't stop: {{error}}",
+      "transcription": "Transcription",
+      "upToDate": "Up to date",
+      "behind": "{{duration}} behind",
+      "waiting": "Waiting for audio",
+      "stalled": "No audio for {{duration}}",
+      "empty": "The transcript appears here as people speak.",
+      "truncated": "Showing the last {{count}} lines. The full transcript is in Sessions.",
+      "transcriptError": "Couldn't load the transcript: {{error}}"
+    },
+    "track": {
+      "microphone": "Mic",
+      "system": "System",
+      "unknown": "Track {{track}}"
+    },
+    "transcript": {
+      "play": "Play segment",
+      "pause": "Pause",
+      "queued": "Waiting for transcription",
+      "provisional": "Provisional, may still change",
+      "failed": "Transcription failed: {{error}}",
+      "playbackError": "Couldn't play this segment: {{error}}",
+      "noSpeech": "No speech detected. Audio preserved."
+    },
+    "sessions": {
+      "empty": "No meetings yet.",
+      "back": "Sessions"
+    },
+    "status": {
+      "recording": "Recording",
+      "completed": "Completed",
+      "interrupted": "Interrupted",
+      "failed": "Failed"
+    },
+    "detail": {
+      "exportTranscript": "Export transcript",
+      "transcriptFormat": "Transcript format",
+      "stopToExport": "Stop the meeting before exporting.",
+      "transcriptFormats": {
+        "markdown": "Markdown (.md)",
+        "text": "Plain text (.txt)",
+        "json": "JSON (.json)"
+      },
+      "export": "Export M4A",
+      "exporting": "Exporting…",
+      "reveal": "Show in folder",
+      "openFolder": "Open folder",
+      "retry": "Retry transcription",
+      "retrying": "Retrying…",
+      "transcript": "Transcript",
+      "previous": "Previous",
+      "next": "Next",
+      "range": "{{from}}–{{to}}",
+      "empty": "No transcript.",
+      "loadError": "Couldn't load this meeting: {{error}}",
+      "trackStats": "{{track}}: {{padding}} ms without received audio, {{dropped}} dropped samples, {{overlap}} overlapping samples.",
+      "exportChannels": "Stereo export: microphone on the left, system audio on the right."
+    }
   }
 }

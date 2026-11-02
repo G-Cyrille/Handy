@@ -355,6 +355,15 @@ pub enum LanguageDetectionMode {
     Always,
 }
 
+/// Which displays to include in screenshot context for AI post-processing.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ScreenshotCaptureScope {
+    #[default]
+    CurrentMonitor,
+    AllMonitors,
+}
+
 #[derive(Clone, Serialize, Deserialize, Type)]
 #[serde(transparent)]
 pub(crate) struct SecretMap(HashMap<String, String>);
@@ -491,6 +500,19 @@ pub struct AppSettings {
     pub post_process_prompts: Vec<LLMPrompt>,
     #[serde(default)]
     pub post_process_selected_prompt_id: Option<String>,
+    /// Attach screenshot context to post-processing requests (see
+    /// `screenshot.rs`). Off by default; captures on macOS only.
+    #[serde(default)]
+    pub screenshot_context_enabled: bool,
+    /// Draw an enlarged pointer at the cursor position in screenshot context.
+    #[serde(default, alias = "screenshot_cursor_arrow")]
+    pub screenshot_cursor_highlight: bool,
+    /// Outline the focused text input at capture time when Accessibility exposes it.
+    #[serde(default)]
+    pub screenshot_focus_highlight: bool,
+    /// Capture the monitor under the cursor or compose every active monitor.
+    #[serde(default)]
+    pub screenshot_capture_scope: ScreenshotCaptureScope,
     #[serde(default)]
     pub mute_while_recording: bool,
     #[serde(default)]
@@ -991,6 +1013,17 @@ pub fn get_default_settings() -> AppSettings {
         },
     );
 
+    bindings.insert(
+        "meeting".into(),
+        ShortcutBinding {
+            id: "meeting".into(),
+            name: "Meeting".into(),
+            description: "Start or stop a meeting recording.".into(),
+            default_binding: "ctrl+alt+shift+super+m".into(),
+            current_binding: "ctrl+alt+shift+super+m".into(),
+        },
+    );
+
     AppSettings {
         settings_schema_version: default_settings_schema_version(),
         bindings,
@@ -1033,6 +1066,10 @@ pub fn get_default_settings() -> AppSettings {
         post_process_models: default_post_process_models(),
         post_process_prompts: default_post_process_prompts(),
         post_process_selected_prompt_id: None,
+        screenshot_context_enabled: false,
+        screenshot_cursor_highlight: false,
+        screenshot_focus_highlight: false,
+        screenshot_capture_scope: ScreenshotCaptureScope::default(),
         mute_while_recording: false,
         append_trailing_space: false,
         app_language: default_app_language(),
@@ -1154,6 +1191,7 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
 
+    crate::test_build::restrict_settings(app, &mut settings);
     settings
 }
 
@@ -1460,6 +1498,12 @@ mod tests {
         assert_eq!(settings.hold_threshold_ms, default_hold_threshold_ms());
         assert!(!settings.audio_feedback);
         assert!(settings.filler_word_removal_enabled);
+        assert!(!settings.screenshot_cursor_highlight);
+        assert!(!settings.screenshot_focus_highlight);
+        assert_eq!(
+            settings.screenshot_capture_scope,
+            ScreenshotCaptureScope::CurrentMonitor
+        );
         // Bindings default to empty; the load path merges the real defaults in.
         assert!(settings.bindings.is_empty());
     }
@@ -1579,10 +1623,16 @@ mod tests {
         assert_eq!(settings.log_level, LogLevel::Debug);
         assert_eq!(settings.sound_theme, SoundTheme::Pop);
         assert!(settings.filler_word_removal_enabled);
+        assert!(!settings.screenshot_cursor_highlight);
+        assert!(!settings.screenshot_focus_highlight);
         assert_eq!(settings.vad_backend, VadBackend::Silero);
         assert!(
             settings.long_form_chunking,
             "chunking is on for settings saved before it existed"
+        );
+        assert_eq!(
+            settings.screenshot_capture_scope,
+            ScreenshotCaptureScope::CurrentMonitor
         );
 
         // The 0.1 integer device index is cleared once for transcribe.cpp 0.2.

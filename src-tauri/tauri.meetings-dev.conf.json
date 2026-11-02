@@ -1,0 +1,14 @@
+{
+  "productName": "Handy Meetings Dev",
+  "identifier": "com.pais.handy.meetings-dev",
+  "build": {
+    "beforeDevCommand": "bun run dev -- --port 1438 --strictPort",
+    "devUrl": "http://localhost:1438"
+  },
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "macOS": {
+      "infoPlist": "Info.meetings-dev.plist"
+    }
+  }
+}

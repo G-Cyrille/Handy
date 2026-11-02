@@ -1,6 +1,7 @@
 mod actions;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
+mod asr_scheduler;
 mod audio_feedback;
 pub mod audio_toolkit;
 mod autostart;
@@ -15,15 +16,20 @@ mod input;
 mod language_detection;
 mod llm_client;
 mod managers;
+mod meetings;
 mod memory;
 mod overlay;
 mod paste_tx;
 pub mod portable;
+mod screenshot;
+#[cfg(target_os = "macos")]
+mod screenshot_focus;
 mod secure_input;
 mod settings;
 mod shortcut;
 mod signal_handle;
 mod system_languages;
+mod test_build;
 mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
@@ -215,8 +221,19 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(model_manager.clone());
     app_handle.manage(transcription_manager.clone());
     app_handle.manage(history_manager.clone());
+    match meetings::MeetingManager::new(app_handle) {
+        Ok(manager) => {
+            app_handle.manage(manager);
+        }
+        Err(error) => log::error!("Meeting archive initialization failed: {error}"),
+    }
     app_handle.manage(tray::TrayState::new());
     app_handle.manage(TranscriptionJobManager::new(app_handle));
+    app_handle.manage(screenshot::ScreenshotContext::new());
+    #[cfg(debug_assertions)]
+    if let Some(request) = app_handle.state::<CliArgs>().meeting_control.as_ref() {
+        meetings::test_control::dispatch(app_handle, request);
+    }
 
     // Note: Shortcuts are NOT initialized here.
     // The frontend is responsible for calling the `initialize_shortcuts` command
@@ -366,6 +383,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     // Apply the autostart preference (SMAppService login item on macOS 13+,
     // tauri-plugin-autostart elsewhere)
     autostart::apply_autostart(app_handle, settings.autostart_enabled);
+    test_build::log_paths(app_handle);
 
     // Create the recording overlay window (hidden by default)
     utils::create_recording_overlay(app_handle);
@@ -627,35 +645,19 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
     0
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run(cli_args: CliArgs) {
-    // Avoid ggml-metal residency-set teardown assertions when a native engine
-    // outlives the Tauri shutdown sequence (#1902). This must happen before
-    // transcribe-cpp initializes its Metal device. Advanced users can restore
-    // upstream residency behavior with HANDY_METAL_RESIDENCY=1.
-    #[cfg(target_os = "macos")]
-    if std::env::var("HANDY_METAL_RESIDENCY").as_deref() == Ok("1") {
-        // ggml treats GGML_METAL_NO_RESIDENCY as presence-based, so remove an
-        // inherited value as well when explicitly opting back in.
-        std::env::remove_var("GGML_METAL_NO_RESIDENCY");
-    } else {
-        std::env::set_var("GGML_METAL_NO_RESIDENCY", "1");
-    }
-
-    // Pin glibc's dynamic mmap threshold before the first large allocation,
-    // so per-dictation transient buffers are returned to the OS on free
-    // instead of accumulating in malloc arenas (#1792). No-op off Linux/glibc.
-    memory::init_allocator();
-
-    // Detect portable mode before anything else
-    portable::init();
-
-    // Parse console logging directives from RUST_LOG, falling back to info-level logging
-    // when the variable is unset
-    let console_filter = build_console_filter();
-
-    let specta_builder = Builder::<tauri::Wry>::new()
+fn command_bindings() -> Builder<tauri::Wry> {
+    Builder::<tauri::Wry>::new()
         .commands(collect_commands![
+            commands::meetings::list_meeting_sources,
+            commands::meetings::get_meeting_snapshot,
+            commands::meetings::start_meeting,
+            commands::meetings::stop_meeting,
+            commands::meetings::get_meeting_detail,
+            commands::meetings::set_meeting_ai,
+            commands::meetings::retry_meeting_asr,
+            commands::meetings::export_meeting_audio,
+            commands::meetings::export_meeting_transcript,
+            commands::meetings::open_meeting_folder,
             shortcut::change_binding,
             shortcut::reset_binding,
             shortcut::change_shortcut_activation_setting,
@@ -703,6 +705,10 @@ pub fn run(cli_args: CliArgs) {
             shortcut::resume_all_bindings,
             shortcut::change_mute_while_recording_setting,
             shortcut::change_append_trailing_space_setting,
+            shortcut::change_screenshot_context_enabled_setting,
+            shortcut::change_screenshot_cursor_highlight_setting,
+            shortcut::change_screenshot_focus_highlight_setting,
+            shortcut::change_screenshot_capture_scope_setting,
             shortcut::change_lazy_stream_close_setting,
             shortcut::change_vad_enabled_setting,
             shortcut::change_long_form_chunking_setting,
@@ -778,6 +784,8 @@ pub fn run(cli_args: CliArgs) {
             commands::history::get_history_entries,
             commands::history::toggle_history_entry_saved,
             commands::history::get_audio_file_path,
+            commands::history::get_history_screenshot,
+            commands::history::copy_history_screenshot,
             commands::history::delete_history_entry,
             commands::history::retry_history_entry_transcription,
             commands::history::cancel_history_entry_transcription,
@@ -793,15 +801,62 @@ pub fn run(cli_args: CliArgs) {
             managers::transcription::StreamPhaseEvent,
             transcription_coordinator::RecordingStateEvent,
             actions::TranscriptionCompleteEvent,
-        ]);
+        ])
+}
 
-    #[cfg(debug_assertions)] // <- Only export on non-release builds
-    specta_builder
-        .export(
+#[cfg(test)]
+mod binding_export_tests {
+    #[test]
+    fn export_typescript_bindings() {
+        super::command_bindings()
+            .export(
+                super::Typescript::default().bigint(super::BigIntExportBehavior::Number),
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts"),
+            )
+            .expect("TypeScript bindings export");
+    }
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run(cli_args: CliArgs) {
+    let mut context = tauri::generate_context!();
+    test_build::isolate_config(context.config_mut());
+    // Avoid ggml-metal residency-set teardown assertions when a native engine
+    // outlives the Tauri shutdown sequence (#1902). This must happen before
+    // transcribe-cpp initializes its Metal device. Advanced users can restore
+    // upstream residency behavior with HANDY_METAL_RESIDENCY=1.
+    #[cfg(target_os = "macos")]
+    if std::env::var("HANDY_METAL_RESIDENCY").as_deref() == Ok("1") {
+        // ggml treats GGML_METAL_NO_RESIDENCY as presence-based, so remove an
+        // inherited value as well when explicitly opting back in.
+        std::env::remove_var("GGML_METAL_NO_RESIDENCY");
+    } else {
+        std::env::set_var("GGML_METAL_NO_RESIDENCY", "1");
+    }
+
+    // Pin glibc's dynamic mmap threshold before the first large allocation,
+    // so per-dictation transient buffers are returned to the OS on free
+    // instead of accumulating in malloc arenas (#1792). No-op off Linux/glibc.
+    memory::init_allocator();
+
+    // Detect portable mode before anything else
+    portable::init();
+
+    // Parse console logging directives from RUST_LOG, falling back to info-level logging
+    // when the variable is unset
+    let console_filter = build_console_filter();
+
+    let specta_builder = command_bindings();
+
+    #[cfg(debug_assertions)]
+    if context.config().identifier != test_build::IDENTIFIER {
+        if let Err(error) = specta_builder.export(
             Typescript::default().bigint(BigIntExportBehavior::Number),
-            "../src/bindings.ts",
-        )
-        .expect("Failed to export typescript bindings");
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/bindings.ts"),
+        ) {
+            eprintln!("Warning: failed to export TypeScript bindings: {error}");
+        }
+    }
 
     let invoke_handler = specta_builder.invoke_handler();
 
@@ -874,6 +929,13 @@ pub fn run(cli_args: CliArgs) {
     // instance instead.
     if !headless_mode {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            #[cfg(debug_assertions)]
+            if let Some(index) = args.iter().position(|arg| arg == "--meeting-control") {
+                if let Some(request) = args.get(index + 1) {
+                    meetings::test_control::dispatch(app, request);
+                }
+                return;
+            }
             if args.iter().any(|a| a == "--toggle-transcription") {
                 signal_handle::send_transcription_input(app, "transcribe", "CLI");
             } else if args.iter().any(|a| a == "--toggle-post-process") {
@@ -966,7 +1028,7 @@ pub fn run(cli_args: CliArgs) {
             // for portable mode (redirects WebView2 cache to portable Data dir)
             let mut win_builder =
                 tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
-                    .title("Handy")
+                    .title(app.config().product_name.as_deref().unwrap_or("Handy"))
                     .inner_size(utils::MAIN_WINDOW_SIZE.0, utils::MAIN_WINDOW_SIZE.1)
                     .min_inner_size(utils::MAIN_WINDOW_SIZE.0, utils::MAIN_WINDOW_SIZE.1)
                     .resizable(true)
@@ -1130,7 +1192,7 @@ pub fn run(cli_args: CliArgs) {
             _ => {}
         })
         .invoke_handler(invoke_handler)
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application");
 
     // Must sit between build() and run(): see the doc comment.
@@ -1140,6 +1202,20 @@ pub fn run(cli_args: CliArgs) {
     // `app` is only used by the macOS arm.
     #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
     app.run(|app, event| match &event {
+        tauri::RunEvent::ExitRequested { api, .. } => {
+            static FINALIZING: AtomicBool = AtomicBool::new(false);
+            if let Some(manager) = app.try_state::<Arc<meetings::MeetingManager>>() {
+                if !FINALIZING.swap(true, Ordering::SeqCst) {
+                    api.prevent_exit();
+                    let manager = manager.inner().clone();
+                    let app = app.clone();
+                    std::thread::spawn(move || {
+                        manager.shutdown();
+                        app.exit(0);
+                    });
+                }
+            }
+        }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
             // Fired when the already-running bundle is launched again from

@@ -17,6 +17,7 @@ import {
   Star,
   Trash2,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -34,6 +35,8 @@ import {
 import { formatDateTime } from "@/utils/dateFormat";
 import { AudioPlayer, AudioPlayerGroup } from "../../ui/AudioPlayer";
 import { Button } from "../../ui/Button";
+import { Dialog } from "../../ui/Dialog";
+import { ScreenshotLightbox } from "./ScreenshotLightbox";
 import { copyToClipboard } from "./clipboard";
 import { pickAndTranscribeFiles } from "./transcribeFiles";
 
@@ -362,6 +365,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
+  const [showScreenshot, setShowScreenshot] = useState(false);
 
   // Queued or being transcribed in the background.
   const retrying = job !== undefined;
@@ -381,6 +385,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
     observer.observe(el);
     return () => observer.disconnect();
   }, [folded, entry.transcription_text]);
+  const hasScreenshot = entry.screenshot_file_name !== null;
 
   const handleLoadAudio = useCallback(
     () => getAudioUrl(entry.file_name),
@@ -449,6 +454,14 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               <Copy width={16} height={16} />
             )}
           </IconButton>
+          {hasScreenshot && (
+            <IconButton
+              onClick={() => setShowScreenshot(true)}
+              title={t("settings.history.screenshot.view")}
+            >
+              <ImageIcon width={16} height={16} />
+            </IconButton>
+          )}
           <IconButton
             onClick={onToggleSaved}
             active={entry.saved}
@@ -546,6 +559,13 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
       </div>
 
       <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+
+      {showScreenshot && (
+        <ScreenshotLightbox
+          entryId={entry.id}
+          onClose={() => setShowScreenshot(false)}
+        />
+      )}
     </div>
   );
 };
