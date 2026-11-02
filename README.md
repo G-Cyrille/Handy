@@ -1,5 +1,9 @@
 # Handy
 
+This is [Cyrille's fork](https://github.com/G-Cyrille/Handy). `main` mirrors the
+original project; `personal/main` contains the combined fork features. See the
+[fork update and publication workflow](docs/fork-workflow.md).
+
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/WVBeWsNXK4)
 
 **A free, open source, and extensible speech-to-text application that works completely offline.**

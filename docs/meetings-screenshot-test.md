@@ -7,10 +7,10 @@ L'app installée dans `/Applications/Handy Screenshot Test.app` combine
 `feat/meetings-screenshot` : screenshots, historique des images, Voxtral Q4 et
 Réunions. Son numéro de version reste `0.9.8`, comme upstream.
 
-Les sources de cette installation sont dans le checkout principal `HandyFork`,
-sur `chore/update-screenshot-test`. Le commit de merge est finalisé localement
-le 2 novembre, sans push. `main` a été avancé en fast-forward jusqu'à
-`upstream/main`. Les autres branches et worktrees sont préservés.
+Les sources de cette installation sont enregistrées au commit `98c803a9`,
+finalisé le 2 novembre sur `chore/update-screenshot-test`. Cette branche peut
+ensuite avancer sans réinstaller l'app. La version combinée à jour est maintenue
+sur `personal/main`, suivant [le workflow du fork](fork-workflow.md).
 
 Le build utilise toujours `src-tauri/tauri.screenshot-test.conf.json` et la
 commande ci-dessous. Le bundle identifier, les entitlements et la designated

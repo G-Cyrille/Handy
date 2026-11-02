@@ -248,69 +248,18 @@ See the [Troubleshooting](README.md#troubleshooting) section in README.md.
 
 ## Fork integration workflow
 
-This checkout uses three kinds of branches:
-
-- `main` mirrors `upstream/main`. Keep feature commits off it and update it only
-  with a fast-forward from upstream.
-- `feat/*`, `fix/*`, and `refactor/*` branches contain isolated changes that can
-  be reviewed or proposed upstream independently.
-- `personal/main` combines the completed fork-only branches into the locally
-  runnable version. Do not develop directly on it.
-
-Do not stack unrelated feature branches. Start each independent change from an
-up-to-date `main`. Stack branches only when the child feature has a real code
-dependency on its parent, and record that dependency in the handoff.
-
-### Dedicated integration worktree
-
-Keep `personal/main` checked out in the sibling worktree
-`../HandyFork-personal`. This leaves the primary `HandyFork` worktree available
-for feature development while the combined application remains ready to build.
-
-Create the integration worktree only if it does not already exist:
-
-```bash
-git branch personal/main main
-git worktree add ../HandyFork-personal personal/main
-```
-
-### Refresh and integrate
-
-Before integrating a feature, update the primary checkout and preserve any user
-work:
-
-```bash
-git status --short --branch
-git fetch origin --prune
-git fetch upstream --prune
-git switch main
-git merge --ff-only upstream/main
-```
-
-Then update the integration worktree and merge each completed feature with a
-merge commit. Never push `personal/main` unless Cyrille explicitly asks for it.
-
-```bash
-git -C ../HandyFork-personal merge --ff-only main
-git -C ../HandyFork-personal merge --no-ff feat/example
-```
-
-Repeated merges pick up only the new commits added to a feature branch. Resolve
-conflicts caused by the combination on `personal/main`. If the conflict exposes
-a bug in a standalone feature, fix it on that feature branch first, then merge
-it again.
-
-### Build the combined application
-
-Install dependencies and build from the integration worktree so the output
-contains every branch merged into `personal/main`:
-
-```bash
-cd ../HandyFork-personal
-bun install
-bun run tauri build
-```
-
-The ignored `src-tauri/tauri.screenshot-test.conf.json` file is worktree-local.
-Copy it into the integration worktree before using the packaged macOS screenshot
-test build. Preserve its bundle identifier and Apple Development signing values.
+- `origin` is Cyrille's GitHub fork, `https://github.com/G-Cyrille/Handy.git`.
+  It is the only writable remote. `upstream` is the original project,
+  `https://github.com/cjpais/handy.git`; keep its push URL disabled.
+- `main` mirrors upstream with fast-forwards only. `personal/main` is the
+  canonical combined fork. Keep independent features on focused branches
+  created from an up-to-date `main`; integrate on a separate `chore/*` branch.
+- Before updating the fork, integrating a feature, publishing local work, or
+  preparing an install, read [docs/fork-workflow.md](docs/fork-workflow.md).
+  It defines the fetch, merge, validation, push and verification procedure.
+- A request to update Handy, refresh upstream, or synchronize the fork includes
+  committing the validated integration and pushing `main`, `personal/main`
+  and the integration branch to `origin`, unless Cyrille explicitly asks for
+  local-only work. A local commit alone does not complete that request.
+- Installing or relaunching the daily-driver app is a separate action requiring
+  an explicit request. Git synchronization alone leaves the installed app alone.
