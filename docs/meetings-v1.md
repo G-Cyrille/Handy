@@ -1,5 +1,10 @@
 # Réunions V1
 
+La capture et l’archive de cette V1 servent maintenant à
+[l’assistant « Fil ouvert »](meeting-assistant.md), qui ajoute la fenêtre dédiée,
+la préparation, les discussions et les agents. Le reste de ce document décrit
+le fonctionnement et la validation de la capture V1.
+
 Branche `feat/meetings-v1`, basée sur `upstream/main` à `4150a4a`.
 Capture audio macOS 15 minimum. Pas de vidéo, de diarization individuelle ni d’exécution d’actions IA.
 

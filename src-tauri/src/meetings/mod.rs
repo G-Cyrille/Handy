@@ -1,10 +1,13 @@
 //! Capture writes a durable archive; ASR and suggestions consume finalized audio.
+pub mod agents;
 pub mod archive;
 pub mod capture;
 mod insights;
+pub mod media;
 #[cfg(debug_assertions)]
 pub mod test_control;
 mod vad;
+pub mod workspace;
 
 use archive::{ArchiveStore, Segment, Session};
 use capture::{CaptureEvent, CaptureHandle, CaptureSelection};
@@ -101,6 +104,8 @@ pub struct MeetingManager {
     asr_last_duration_ms: AtomicU64,
     asr_last_lag_ms: AtomicU64,
     last_error: Mutex<Option<String>>,
+    workspace_lock: Mutex<()>,
+    agent_jobs: Mutex<std::collections::HashMap<String, agents::AgentJob>>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -108,11 +113,35 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 impl MeetingManager {
+    #[cfg(test)]
+    pub(super) fn test_manager(root: PathBuf) -> Self {
+        Self {
+            store: ArchiveStore::open(root.clone()).unwrap(),
+            root,
+            active: Mutex::new(None),
+            preferences: Mutex::new(MeetingPreferences::default()),
+            pending: Arc::new(Mutex::new(None)),
+            vad: std::sync::OnceLock::new(),
+            ai_task: Mutex::new(None),
+            shutdown: AtomicBool::new(false),
+            asr_last_duration_ms: AtomicU64::new(0),
+            asr_last_lag_ms: AtomicU64::new(0),
+            last_error: Mutex::new(None),
+            workspace_lock: Mutex::new(()),
+            agent_jobs: Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+
     pub fn new(app: &AppHandle) -> Result<Arc<Self>, String> {
         let root = crate::portable::app_data_dir(app)
             .map_err(|e| e.to_string())?
             .join("meetings");
         let store = ArchiveStore::open(root.clone())?;
+        std::fs::write(
+            root.join("meeting-query.py"),
+            include_str!("../../../scripts/meetings/query.py"),
+        )
+        .map_err(|e| e.to_string())?;
         let preferences = match std::fs::read(root.join("preferences.json")) {
             Ok(bytes) => {
                 serde_json::from_slice(&bytes).map_err(|e| format!("Meeting preferences: {e}"))?
@@ -134,7 +163,10 @@ impl MeetingManager {
             asr_last_duration_ms: AtomicU64::new(0),
             asr_last_lag_ms: AtomicU64::new(0),
             last_error: Mutex::new(None),
+            workspace_lock: Mutex::new(()),
+            agent_jobs: Mutex::new(std::collections::HashMap::new()),
         });
+        manager.recover_discussions()?;
         let weak = Arc::downgrade(&manager);
         let app = app.clone();
         thread::Builder::new()
@@ -163,6 +195,20 @@ impl MeetingManager {
     }
 
     pub fn start(&self, selection: CaptureSelection, ai_enabled: bool) -> Result<Session, String> {
+        self.start_prepared(None, selection, ai_enabled)
+    }
+
+    pub fn start_prepared(
+        &self,
+        prepared_id: Option<&str>,
+        selection: CaptureSelection,
+        ai_enabled: bool,
+    ) -> Result<Session, String> {
+        if let Some(id) = prepared_id {
+            if self.store.session(id)?.status != "prepared" {
+                return Err("This meeting has already started".into());
+            }
+        }
         self.reap_finished();
         let mut active = lock(&self.active);
         if active.is_some() {
@@ -206,9 +252,15 @@ impl MeetingManager {
                 capture::host_time_ns().saturating_sub(1_000_000_000)
             }
         };
-        let session = self
-            .store
-            .create_session(microphone, system, ai_enabled, origin_ns)?;
+        let session = match prepared_id {
+            Some(id) => {
+                self.store
+                    .activate_preparation(id, &microphone, &system, ai_enabled, origin_ns)?
+            }
+            None => self
+                .store
+                .create_session(microphone, system, ai_enabled, origin_ns)?,
+        };
         let session = self.store.align_started_at(
             &session.id,
             chrono::Utc::now().timestamp_millis() - elapsed_ms(origin_ns) as i64,
@@ -348,6 +400,15 @@ impl MeetingManager {
         if let Some(warning) = lock(&active.runtime.warning).clone() {
             *lock(&self.last_error) = Some(warning);
         }
+        if let Err(error) = self.export_bundle(&active.id) {
+            let _guard = lock(&self.workspace_lock);
+            if let Ok(dir) = self.store.session_dir(&active.id) {
+                if let Ok(mut data) = workspace::read(&dir) {
+                    data.media_error = Some(error);
+                    let _ = workspace::write(&dir, &data);
+                }
+            }
+        }
         capture_result
     }
 
@@ -364,6 +425,7 @@ impl MeetingManager {
 
     pub fn shutdown(&self) {
         self.shutdown.store(true, Ordering::Release);
+        self.stop_all_agents();
         if let Err(error) = self.stop() {
             log::error!("Meeting finalization: {error}");
         }
@@ -371,7 +433,6 @@ impl MeetingManager {
 
     pub fn toggle(&self, app: &AppHandle) -> Result<(), String> {
         crate::show_main_window(app);
-        let _ = app.emit("meeting-open", ());
         let result = if lock(&self.active).is_some() {
             self.stop()
         } else {
@@ -381,6 +442,7 @@ impl MeetingManager {
             };
             self.start(selection, preferences.ai_enabled).map(|_| ())
         };
+        let _ = app.emit("meeting-open", ());
         if let Err(error) = &result {
             *lock(&self.last_error) = Some(error.clone());
         }
@@ -538,6 +600,28 @@ impl MeetingManager {
         if let Err(error) = outcome {
             if let Err(storage_error) = self.store.set_asr_error(segment.id, &error) {
                 *lock(&self.last_error) = Some(storage_error);
+            }
+        }
+        if self
+            .store
+            .session(&segment.session_id)
+            .is_ok_and(|s| s.status != "recording")
+            && self
+                .store
+                .backlog_ms(&segment.session_id)
+                .is_ok_and(|pending| pending == 0)
+        {
+            let _guard = lock(&self.workspace_lock);
+            if let Ok(data) = self
+                .store
+                .session_dir(&segment.session_id)
+                .and_then(|dir| workspace::read(&dir))
+            {
+                if let Err(error) =
+                    media::write_transcripts(&self.store, &segment.session_id, &data)
+                {
+                    *lock(&self.last_error) = Some(error);
+                }
             }
         }
     }

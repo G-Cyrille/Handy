@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Maximize, Minus, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { notify } from "@/stores/noticeStore";
 import { commands } from "@/bindings";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
@@ -24,6 +24,12 @@ export const ScreenshotLightbox: React.FC<{
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [copying, setCopying] = useState(false);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [copied]);
   const container = useRef<HTMLDivElement>(null);
   const drag = useRef<{
     x: number;
@@ -128,10 +134,10 @@ export const ScreenshotLightbox: React.FC<{
     try {
       const result = await commands.copyHistoryScreenshot(entryId, selected);
       if (result.status === "error") throw new Error(result.error);
-      toast.success(t(`${key}.copied`));
+      setCopied(true);
     } catch (error) {
       console.error("Failed to copy screenshot:", error);
-      toast.error(t(`${key}.copyFailed`));
+      notify({ title: t(`${key}.copyFailed`), level: "error" });
     } finally {
       setCopying(false);
     }
@@ -215,7 +221,7 @@ export const ScreenshotLightbox: React.FC<{
               onClick={copy}
             >
               <Copy size={14} />
-              {t(`${key}.copy`)}
+              {t(`${key}.${copied ? "copied" : "copy"}`)}
             </Button>
           </div>
           <div

@@ -2,11 +2,17 @@
 use tauri::{AppHandle, Manager};
 
 pub const IDENTIFIER: &str = "com.pais.handy.meetings-dev";
+pub const ASSISTANT_IDENTIFIER: &str = "com.pais.handy.meeting-assistant-dev";
 
 /// Keep the meeting profile separate when reusing the authorized screenshot
 /// test shell. NSBundle retains its signed identity for macOS permissions;
 /// Tauri uses this profile for data paths, logs and single-instance IPC.
 pub fn isolate_config(config: &mut tauri::Config) {
+    if config.product_name.as_deref() == Some("Handy Meeting Assistant Dev")
+        && config.identifier == "com.pais.handy.screenshot-test"
+    {
+        config.identifier = ASSISTANT_IDENTIFIER.into();
+    }
     if config.product_name.as_deref() == Some("Handy Meetings Dev")
         && config.identifier == "com.pais.handy.screenshot-test"
     {
@@ -15,7 +21,7 @@ pub fn isolate_config(config: &mut tauri::Config) {
 }
 
 pub fn is_meetings_dev(app: &AppHandle) -> bool {
-    app.config().identifier == IDENTIFIER
+    [IDENTIFIER, ASSISTANT_IDENTIFIER].contains(&app.config().identifier.as_str())
 }
 
 pub fn default_settings(app: &AppHandle) -> crate::settings::AppSettings {

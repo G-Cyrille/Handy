@@ -5,6 +5,105 @@
 
 
 export const commands = {
+async getMeetingWorkspace(id: string) : Promise<Result<MeetingWorkspace, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_meeting_workspace", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getMeetingLibrary() : Promise<Result<MeetingLibraryItem[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_meeting_library") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async editMeetingWorkspace(id: string, edit: WorkspaceEdit) : Promise<Result<MeetingWorkspace, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("edit_meeting_workspace", { id, edit }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createMeetingPreparation(title: string, folder: string) : Promise<Result<Session, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_meeting_preparation", { title, folder }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async startPreparedMeeting(id: string, selection: CaptureSelection, aiEnabled: boolean) : Promise<Result<Session, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_prepared_meeting", { id, selection, aiEnabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async meetingProviders() : Promise<MeetingProvider[]> {
+    return await TAURI_INVOKE("meeting_providers");
+},
+async sendMeetingMessage(id: string, request: MeetingRequest) : Promise<Result<MeetingWorkspace, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("send_meeting_message", { id, request }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async stopMeetingAgent(id: string, chatId: string) : Promise<Result<MeetingWorkspace, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_meeting_agent", { id, chatId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async captureMeetingImage(id: string, scope: string, atMs: number) : Promise<Result<MeetingWorkspace, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("capture_meeting_image", { id, scope, atMs }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async importMeetingRecording(path: string, title: string, folder: string) : Promise<Result<Session, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("import_meeting_recording", { path, title, folder }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async extractMeetingFrame(id: string, atMs: number) : Promise<Result<MeetingWorkspace, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("extract_meeting_frame", { id, atMs }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async exportMeetingBundle(id: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("export_meeting_bundle", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async openMeetingWindow(id: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_meeting_window", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async listMeetingSources() : Promise<Result<CaptureSources, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("list_meeting_sources") };
@@ -1382,6 +1481,7 @@ export type ChineseScript =
 "traditional_hk"
 export type ClipboardHandling = "dont_modify" | "copy_to_clipboard"
 export type CustomSounds = { start: boolean; stop: boolean }
+export type Discussion = { id: string; title: string; provider: string; model: string; effort: string; fast: boolean; status: string; draft: string; messages: MeetingMessage[]; native_id: string | null; error: string | null; queued?: boolean; live_text?: string; turns?: QueuedTurn[] }
 export type GpuDeviceOption = { id: string; name: string; total_vram_mb: number }
 export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean; 
 /**
@@ -1487,10 +1587,23 @@ export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
 export type MacPermission = "accessibility" | "microphone"
 export type MeetingDetail = { session: Session; segments: Segment[]; has_more: boolean; total_segments: number; track_stats: TrackStats[]; insights: MeetingInsights }
 export type MeetingInsights = { summary: string; suggestions: MeetingSuggestion[]; error: string | null; provider: string; model: string }
+export type MeetingLibraryItem = { session: Session; title: string; folder: string; summary: string }
+export type MeetingMessage = { role: string; text: string; at_ms: number; images?: string[] }
 export type MeetingPreferences = { selection: CaptureSelection | null; ai_enabled: boolean }
+export type MeetingProvider = { id: string; label: string; available: boolean; model: string; models: string[] }
+export type MeetingRequest = { chat_id: string | null; title: string; text: string; 
+/**
+ * `codex`, `claude`, or an existing Handy provider id.
+ */
+provider: string; model: string; effort: string; fast: boolean; segment_ids: number[]; capture_ids: string[]; 
+/**
+ * `message`, `propose` or `correct`.
+ */
+purpose: string }
 export type MeetingSnapshot = { sessions: Session[]; active_id: string | null; elapsed_ms: number; tracks: MeetingTrackStatus[]; capture_error: string | null; pending: PendingTranscript | null; storage_path: string; provider: string; model: string; backlog_ms: number; buffered_samples: number; asr_last_duration_ms: number; asr_last_lag_ms: number; preferences: MeetingPreferences }
 export type MeetingSuggestion = { at_ms: number; text: string }
 export type MeetingTrackStatus = { track: number; received_samples: number; last_received_ms: number }
+export type MeetingWorkspace = { title: string; folder: string; goal: string; context: string; participants: string; working_directory: string; documents: string[]; related_meetings: string[]; entries: TimelineEntry[]; discussions: Discussion[]; dismissed_suggestions: string[]; proposed_actions: string[]; favorites: string[]; corrections: Partial<{ [key in string]: string }>; speakers: Partial<{ [key in string]: string }>; imported_video: string | null; media_error: string | null }
 export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; accuracy_score: number; speed_score: number; supports_translation: boolean; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_streaming: boolean; supports_language_detection: boolean }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
 /**
@@ -1577,6 +1690,7 @@ export type PostProcessApiFormat =
  */
 "anthropic"
 export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null; supports_structured_output?: boolean; api_format?: PostProcessApiFormat }
+export type QueuedTurn = { request: MeetingRequest; message_count: number }
 /**
  * Recording phase events for windows that follow along (onboarding's Try it).
  */
@@ -1708,6 +1822,11 @@ export type StreamWorkKind = "transcribing" | "polishing"
  * and `Dark` force one of the two palettes Handy already ships.
  */
 export type Theme = "system" | "light" | "dark"
+export type TimelineEntry = { id: string; at_ms: number; 
+/**
+ * `note` or `capture`. Capture paths are relative to the session directory.
+ */
+kind: string; text: string; image: string | null }
 /**
  * Per-track sample accounting. `delivered + padded` is the track's written length.
  */
@@ -1779,6 +1898,7 @@ export type TranscriptionOutcome =
 export type TypingTool = "auto" | "wtype" | "kwtype" | "dotool" | "ydotool" | "xdotool"
 export type VadBackend = "silero" | "earshot"
 export type WindowsMicrophonePermissionStatus = { supported: boolean; overall_access: PermissionAccess; device_access: PermissionAccess; app_access: PermissionAccess; desktop_app_access: PermissionAccess }
+export type WorkspaceEdit = { kind: "preparation"; title: string; folder: string; goal: string; context: string; participants: string; working_directory: string; documents: string[]; related_meetings: string[] } | { kind: "note"; id: string | null; at_ms: number; text: string } | { kind: "remove_entry"; id: string } | { kind: "draft"; chat_id: string; text: string } | { kind: "dismiss_suggestion"; text: string } | { kind: "favorites"; actions: string[] } | { kind: "speaker"; segment_id: string; name: string } | { kind: "close_discussion"; chat_id: string }
 
 /** tauri-specta globals **/
 

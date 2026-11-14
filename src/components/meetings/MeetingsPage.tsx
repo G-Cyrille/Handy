@@ -1,132 +1,160 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import { commands } from "@/bindings";
-import { LiveMeeting } from "./LiveMeeting";
-import { MeetingSetup } from "./MeetingSetup";
-import { SessionDetail } from "./SessionDetail";
-import { SessionList } from "./SessionList";
-import { unwrap } from "./meetingFormat";
+import { Button } from "../ui/Button";
+import {
+  errorMessage,
+  formatSessionDate,
+  sessionStatusLabel,
+  unwrap,
+} from "./meetingFormat";
 import { usePolling } from "./usePolling";
+import "./meetings.css";
 
-type View =
-  | { kind: "capture" }
-  | { kind: "sessions" }
-  | { kind: "detail"; sessionId: string };
-
-/**
- * Meetings section. The capture view shows setup or the running meeting; the
- * archive lists sessions and opens one in detail. Capture runs in the backend,
- * so leaving this page only stops the 1 s snapshot polling.
- */
+/** The main window is only a library; a meeting opens in its own window. */
 export const MeetingsPage: React.FC = () => {
-  const { t } = useTranslation();
-  const [view, setView] = useState<View>({ kind: "capture" });
-  const rootRef = useRef<HTMLDivElement>(null);
-  const snapshot = usePolling(
-    () => unwrap(commands.getMeetingSnapshot()),
-    1000,
-  );
-
-  // The meeting shortcut opens this section; show the capture view too.
-  useEffect(() => {
-    const unlisten = listen("meeting-open", () => setView({ kind: "capture" }));
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
-
-  // Each view starts at its top, like switching sidebar sections does.
-  useLayoutEffect(() => {
-    rootRef.current?.scrollIntoView({ block: "start" });
-  }, [view]);
-
-  const data = snapshot.data;
-  const activeSession = data?.active_id
-    ? data.sessions.find((session) => session.id === data.active_id)
-    : undefined;
-
-  const tab = (kind: "capture" | "sessions", label: string) => {
-    const active =
-      view.kind === kind || (kind === "sessions" && view.kind === "detail");
-    return (
-      <button
-        type="button"
-        onClick={() => setView({ kind })}
-        className={`px-1 py-1 text-sm font-medium border-b-2 cursor-pointer transition-colors ${
-          active
-            ? "border-logo-primary text-text"
-            : "border-transparent text-text/60 hover:text-text"
-        }`}
-      >
-        {label}
-      </button>
-    );
+  const { t, i18n } = useTranslation();
+  const library = usePolling(() => unwrap(commands.getMeetingLibrary()), 3000);
+  const [search, setSearch] = useState("");
+  const [folder, setFolder] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = async (operation: () => Promise<unknown>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await operation();
+      await library.refresh();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   };
-
-  let content: React.ReactNode = null;
-  if (view.kind === "detail") {
-    content = (
-      <SessionDetail
-        key={view.sessionId}
-        sessionId={view.sessionId}
-        onBack={() => setView({ kind: "sessions" })}
-      />
-    );
-  } else if (!data) {
-    content = snapshot.error ? null : (
-      <p className="px-4 text-sm text-text/60">{t("meetings.loading")}</p>
-    );
-  } else if (view.kind === "sessions") {
-    content = (
-      <SessionList
-        sessions={data.sessions}
-        activeId={data.active_id}
-        onOpen={(session) =>
-          setView(
-            session.id === data.active_id
-              ? { kind: "capture" }
-              : { kind: "detail", sessionId: session.id },
-          )
-        }
-      />
-    );
-  } else if (activeSession) {
-    content = (
-      <LiveMeeting
-        key={activeSession.id}
-        snapshot={data}
-        session={activeSession}
-        onStopped={(sessionId) => {
-          setView({ kind: "detail", sessionId });
-          snapshot.refresh();
-        }}
-      />
-    );
-  } else {
-    content = <MeetingSetup snapshot={data} onStarted={snapshot.refresh} />;
-  }
-
+  useEffect(() => {
+    const listener = listen("meeting-open", async () => {
+      try {
+        const snapshot = await unwrap(commands.getMeetingSnapshot());
+        if (snapshot.active_id)
+          await unwrap(commands.openMeetingWindow(snapshot.active_id));
+        await library.refresh();
+      } catch (e) {
+        setError(errorMessage(e));
+      }
+    });
+    return () => {
+      listener.then((f) => f());
+    };
+  }, [library.refresh]);
+  const create = () =>
+    run(async () => {
+      const session = await unwrap(
+        commands.createMeetingPreparation(
+          t("meetings.workspace.newMeeting"),
+          folder,
+        ),
+      );
+      await unwrap(commands.openMeetingWindow(session.id));
+    });
+  const importRecording = () =>
+    run(async () => {
+      const path = await open({
+        multiple: false,
+        filters: [
+          {
+            name: t("meetings.workspace.recordings"),
+            extensions: ["mp3", "wav", "m4a", "mp4", "mkv", "mov", "webm"],
+          },
+        ],
+      });
+      if (typeof path !== "string") return;
+      const session = await unwrap(
+        commands.importMeetingRecording(
+          path,
+          path.split(/[\\/]/).pop() ?? t("meetings.workspace.newMeeting"),
+          folder,
+        ),
+      );
+      await unwrap(commands.openMeetingWindow(session.id));
+    });
+  const folders = [
+    ...new Set(
+      library.data
+        ?.flatMap((m) =>
+          m.folder.split("/").map((_, i, parts) =>
+            parts
+              .slice(0, i + 1)
+              .join("/")
+              .trim(),
+          ),
+        )
+        .filter(Boolean) ?? [],
+    ),
+  ].sort();
+  const items =
+    library.data?.filter(
+      (m) =>
+        (!folder || m.folder === folder || m.folder.startsWith(`${folder}/`)) &&
+        `${m.title} ${m.folder} ${m.summary}`
+          .toLocaleLowerCase()
+          .includes(search.toLocaleLowerCase()),
+    ) ?? [];
   return (
-    <div
-      ref={rootRef}
-      className="max-w-3xl w-full mx-auto space-y-4 scroll-mt-4"
-    >
-      <div className="flex items-center gap-4 px-4 border-b border-line">
-        {tab("capture", t("meetings.tabs.capture"))}
-        {tab("sessions", t("meetings.tabs.sessions"))}
+    <div className="meeting-library">
+      <div className="meeting-library-head">
+        <h1>{t("meetings.title")}</h1>
+        <Button variant="secondary" disabled={busy} onClick={importRecording}>
+          {t(busy ? "meetings.loading" : "meetings.workspace.import")}
+        </Button>
+        <Button disabled={busy} onClick={create}>
+          {t("meetings.workspace.newMeeting")}
+        </Button>
       </div>
-      {snapshot.error && (
-        <p className="px-4 text-sm text-red-500">
-          {t("meetings.snapshotError", { error: snapshot.error })}
+      <div className="meeting-library-filters">
+        <input
+          aria-label={t("meetings.workspace.search")}
+          placeholder={t("meetings.workspace.search")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          aria-label={t("meetings.workspace.folder")}
+          value={folder}
+          onChange={(e) => setFolder(e.target.value)}
+        >
+          <option value="">{t("meetings.workspace.allFolders")}</option>
+          {folders.map((f) => (
+            <option key={f}>{f}</option>
+          ))}
+        </select>
+      </div>
+      {(error || library.error) && (
+        <p role="alert" className="meeting-error">
+          {error || library.error}
         </p>
       )}
-      {!data?.active_id && data?.capture_error && (
-        <p role="alert" className="px-4 text-sm text-red-500">
-          {data.capture_error}
-        </p>
-      )}
-      {content}
+      {items.length === 0 && <p>{t("meetings.workspace.emptyLibrary")}</p>}
+      {items.map((item) => (
+        <button
+          key={item.session.id}
+          className="meeting-library-item"
+          onClick={() =>
+            run(() => unwrap(commands.openMeetingWindow(item.session.id)))
+          }
+        >
+          <span>
+            <strong>
+              {item.title ||
+                formatSessionDate(item.session.started_at_ms, i18n.language)}
+            </strong>
+            <span>{item.folder}</span>
+            <span>{item.summary}</span>
+          </span>
+          <span>{sessionStatusLabel(t, item.session.status)}</span>
+        </button>
+      ))}
     </div>
   );
 };

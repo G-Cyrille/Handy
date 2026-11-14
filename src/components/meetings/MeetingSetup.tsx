@@ -26,6 +26,7 @@ const ALL_APPS = "all";
 interface MeetingSetupProps {
   snapshot: MeetingSnapshot;
   onStarted: () => void;
+  sessionId?: string;
 }
 
 /**
@@ -35,6 +36,7 @@ interface MeetingSetupProps {
 export const MeetingSetup: React.FC<MeetingSetupProps> = ({
   snapshot,
   onStarted,
+  sessionId,
 }) => {
   const { t } = useTranslation();
   const [sources, setSources] = useState<CaptureSources | null>(null);
@@ -114,15 +116,15 @@ export const MeetingSetup: React.FC<MeetingSetupProps> = ({
     setStarting(true);
     setStartError(null);
     try {
+      const selection = {
+        microphone_id: microphoneId,
+        application_pid:
+          systemSource === ALL_APPS ? null : Number(systemSource),
+      };
       await unwrap(
-        commands.startMeeting(
-          {
-            microphone_id: microphoneId,
-            application_pid:
-              systemSource === ALL_APPS ? null : Number(systemSource),
-          },
-          aiEnabled,
-        ),
+        sessionId
+          ? commands.startPreparedMeeting(sessionId, selection, aiEnabled)
+          : commands.startMeeting(selection, aiEnabled),
       );
       onStarted();
     } catch (e) {

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { platform } from "@tauri-apps/plugin-os";
 import App from "./App";
+import { MeetingWindow } from "./components/meetings/MeetingWindow";
 import { installCompatShims } from "./lib/compat";
 import {
   applyTheme,
@@ -32,6 +33,12 @@ useNoticeStore.getState().initialize();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    {new URLSearchParams(window.location.search).has("meeting") ? (
+      <MeetingWindow
+        sessionId={new URLSearchParams(window.location.search).get("meeting")!}
+      />
+    ) : (
+      <App />
+    )}
   </React.StrictMode>,
 );

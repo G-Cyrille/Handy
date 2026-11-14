@@ -678,6 +678,19 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
 fn command_bindings() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new()
         .commands(collect_commands![
+            commands::meetings::get_meeting_workspace,
+            commands::meetings::get_meeting_library,
+            commands::meetings::edit_meeting_workspace,
+            commands::meetings::create_meeting_preparation,
+            commands::meetings::start_prepared_meeting,
+            commands::meetings::meeting_providers,
+            commands::meetings::send_meeting_message,
+            commands::meetings::stop_meeting_agent,
+            commands::meetings::capture_meeting_image,
+            commands::meetings::import_meeting_recording,
+            commands::meetings::extract_meeting_frame,
+            commands::meetings::export_meeting_bundle,
+            commands::meetings::open_meeting_window,
             commands::meetings::list_meeting_sources,
             commands::meetings::get_meeting_snapshot,
             commands::meetings::start_meeting,

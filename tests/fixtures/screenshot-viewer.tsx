@@ -2,7 +2,6 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import { Toaster } from "sonner";
 import { commands } from "../../src/bindings";
 import { ScreenshotLightbox } from "../../src/components/settings/history/ScreenshotLightbox";
 import translations from "../../src/i18n/locales/en/translation.json";
@@ -45,7 +44,6 @@ commands.copyHistoryScreenshot = async (id, index) => {
 };
 createRoot(document.getElementById("root")!).render(
   <>
-    <Toaster />
     <ScreenshotLightbox
       entryId={42}
       onClose={() => {

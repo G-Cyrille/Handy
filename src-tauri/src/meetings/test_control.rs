@@ -21,6 +21,28 @@ struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case")]
 enum Operation {
+    Prepare {
+        title: String,
+        folder: String,
+    },
+    Workspace {
+        id: String,
+    },
+    EditWorkspace {
+        id: String,
+        edit: super::workspace::WorkspaceEdit,
+    },
+    Message {
+        id: String,
+        request: super::agents::MeetingRequest,
+    },
+    CancelAgent {
+        id: String,
+        chat_id: String,
+    },
+    OpenMeeting {
+        id: String,
+    },
     Snapshot,
     Sources,
     Start {
@@ -103,6 +125,19 @@ fn execute(app: &AppHandle, operation: Operation) -> Result<Value, String> {
         .try_state::<Arc<MeetingManager>>()
         .ok_or("Meeting manager is unavailable")?;
     match operation {
+        Operation::Prepare { title, folder } => {
+            Ok(json!(manager.create_preparation(title, folder)?))
+        }
+        Operation::Workspace { id } => Ok(json!(manager.workspace(&id)?)),
+        Operation::EditWorkspace { id, edit } => Ok(json!(manager.edit_workspace(&id, edit)?)),
+        Operation::Message { id, request } => {
+            Ok(json!(manager.send_message(app.clone(), id, request)?))
+        }
+        Operation::CancelAgent { id, chat_id } => Ok(json!(manager.cancel_reply(&id, &chat_id)?)),
+        Operation::OpenMeeting { id } => {
+            crate::commands::meetings::open_meeting_window(app.clone(), id)?;
+            Ok(Value::Null)
+        }
         Operation::AiFixture => {
             serde_json::to_value(super::insights::test_fixture(app)?).map_err(|e| e.to_string())
         }

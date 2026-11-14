@@ -2718,6 +2718,7 @@ dependencies = [
  "tauri-specta",
  "tempfile",
  "tokio",
+ "toml 0.9.12+spec-1.1.0",
  "transcribe-cpp",
  "webkit2gtk-sys",
  "webview2-com",
