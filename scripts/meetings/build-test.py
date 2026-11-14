@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build the isolated app using the existing signing identity without printing it."""
 import json
+import argparse
 import os
 from pathlib import Path
 import subprocess
@@ -10,11 +11,15 @@ ROOT = Path(__file__).resolve().parents[2]
 SIGNING_CONFIG = Path("/Users/cyrillegrossholtz/Documents/dev/AI/HandyFork/src-tauri/tauri.screenshot-test.conf.json")
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--assistant", action="store_true", help="Use the independent meeting-assistant profile")
+    args = parser.parse_args()
     existing = json.loads(SIGNING_CONFIG.read_text())
     identity = existing["bundle"]["macOS"]["signingIdentity"]
     if not identity or identity == "-":
         raise SystemExit("The existing test configuration needs a stable signing identity.")
-    config = json.loads((ROOT / "src-tauri/tauri.meetings-dev.conf.json").read_text())
+    config_name = "tauri.meeting-assistant-dev.conf.json" if args.assistant else "tauri.meetings-dev.conf.json"
+    config = json.loads((ROOT / "src-tauri" / config_name).read_text())
     # Reuse the screenshot shell explicitly requested by Cyrille. The runtime
     # meeting profile still isolates data and IPC before Tauri initializes.
     config["identifier"] = existing["identifier"]
@@ -24,7 +29,7 @@ def main():
         json.dump(config, handle)
         path = handle.name
     try:
-        log_path = Path("/private/tmp/handy-meetings-build.log")
+        log_path = Path("/private/tmp/handy-meeting-assistant-bundle.log" if args.assistant else "/private/tmp/handy-meetings-build.log")
         print(f"Build log: {log_path}", flush=True)
         with log_path.open("w") as log:
             build = subprocess.run(["bun", "run", "tauri", "build", "--debug", "--config", path, "--bundles", "app"], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
@@ -32,7 +37,7 @@ def main():
             raise SystemExit(f"Build failed with exit code {build.returncode}; inspect the build log without exposing signing identity.")
     finally:
         os.unlink(path)
-    bundle = ROOT / "src-tauri/target/debug/bundle/macos/Handy Meetings Dev.app"
+    bundle = ROOT / "src-tauri/target/debug/bundle/macos" / ("Handy Meeting Assistant Dev.app" if args.assistant else "Handy Meetings Dev.app")
     subprocess.run(["codesign", "--verify", "--deep", "--strict", str(bundle)], check=True)
     print(bundle)
 

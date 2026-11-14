@@ -6,7 +6,7 @@ from pathlib import Path
 
 SOURCE = Path.home() / "Library/Application Support/com.pais.handy.screenshot-test/settings_store.json"
 TARGET = Path.home() / "Library/Application Support/com.pais.handy.meetings-dev/settings_store.json"
-WHITELIST = ["selected_model", "selected_language", "post_process_provider_id", "post_process_providers", "post_process_models", "ui_language"]
+WHITELIST = ["selected_model", "selected_language", "post_process_provider_id", "post_process_providers", "post_process_models", "ui_language", "app_language"]
 
 def main():
     if TARGET.exists():

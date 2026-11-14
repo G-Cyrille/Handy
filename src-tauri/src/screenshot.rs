@@ -173,6 +173,18 @@ pub struct CapturedScreenshot {
 }
 
 impl CapturedScreenshot {
+    /// Keep every explicitly attached capture in a single multimodal request.
+    pub fn append_capture(&mut self, other: Self) {
+        if self.llm_jpegs.is_empty() {
+            self.llm_jpegs.push(self.jpeg.clone());
+        }
+        if other.llm_jpegs.is_empty() {
+            self.llm_jpegs.push(other.jpeg);
+        } else {
+            self.llm_jpegs.extend(other.llm_jpegs);
+        }
+    }
+
     /// Wrap previously persisted JPEG bytes (history retry). Returns `None`
     /// when the bytes do not decode as a JPEG, so a corrupt file degrades to a
     /// text-only request instead of a rejected one.

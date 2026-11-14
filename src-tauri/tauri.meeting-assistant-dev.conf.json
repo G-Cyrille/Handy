@@ -1,0 +1,12 @@
+{
+  "productName": "Handy Meeting Assistant Dev",
+  "identifier": "com.pais.handy.meeting-assistant-dev",
+  "build": {
+    "beforeDevCommand": "bun run dev -- --port 1444 --strictPort",
+    "devUrl": "http://localhost:1444"
+  },
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "macOS": { "infoPlist": "Info.meetings-dev.plist" }
+  }
+}

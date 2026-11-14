@@ -149,6 +149,35 @@ pub struct ArchiveStore {
 }
 
 impl ArchiveStore {
+    pub fn create_preparation(&self) -> Result<Session, String> {
+        let session = self.create_session(String::new(), String::new(), false, 0)?;
+        self.conn()?
+            .execute(
+                "UPDATE sessions SET status = 'prepared' WHERE id = ?1",
+                [&session.id],
+            )
+            .ctx("prepare meeting")?;
+        self.session(&session.id)
+    }
+
+    pub fn activate_preparation(
+        &self,
+        id: &str,
+        microphone: &str,
+        system: &str,
+        ai_enabled: bool,
+        origin_ns: u64,
+    ) -> Result<Session, String> {
+        let changed = self.conn()?.execute(
+            "UPDATE sessions SET status = 'recording', microphone = ?2, system = ?3, ai_enabled = ?4, origin_ns = ?5 WHERE id = ?1 AND status = 'prepared'",
+            params![id, microphone, system, ai_enabled, to_i64(origin_ns)?],
+        ).ctx("start prepared meeting")?;
+        if changed != 1 {
+            return Err("This meeting is no longer in preparation".into());
+        }
+        self.session(id)
+    }
+
     /// Opens (or creates) the archive at `root` and recovers what a crash left behind.
     pub fn open(root: PathBuf) -> Result<Self, String> {
         fs::create_dir_all(root.join(SESSIONS_DIR))
