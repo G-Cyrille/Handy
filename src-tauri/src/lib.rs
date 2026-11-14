@@ -23,6 +23,8 @@ mod notices;
 mod overlay;
 mod paste_tx;
 pub mod portable;
+#[cfg(target_os = "linux")]
+mod primary_selection;
 mod screenshot;
 #[cfg(target_os = "macos")]
 mod screenshot_focus;

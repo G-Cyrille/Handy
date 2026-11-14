@@ -168,11 +168,19 @@ This is a hardware limitation rather than a Handy bug. `fn` is not part of the s
 
 If you switch between a MacBook keyboard and an external one, pick a shortcut built from standard modifiers (`ctrl`, `option`, `shift`, `command`) or a regular key instead.
 
+### Administrator Apps (Windows)
+
+Windows doesn't let Handy paste into apps that are running as administrator, so Handy shows an error and the transcript is saved in History. With the Handy Keys keyboard implementation, the shortcut also won't work while an administrator app is focused. This is expected. To use Handy with these apps, run Handy as administrator too.
+
 ### Linux Notes
+
+**Paste Method:**
+
+On Linux, new installs paste with **Shift+Insert** (**Clipboard (Shift+Insert)** in **Advanced → Paste Method**). It puts the transcript on both the clipboard and the primary selection, so the same key pastes in GUI apps (which read the clipboard) and in terminals such as kitty, Ghostty, Alacritty and GNOME Terminal (which read the primary selection), then restores both. **Direct** typing is still available, but it depends on your keyboard layout: it can drop capitals and accented characters or type the wrong characters on non-US layouts.
 
 **Text Input Tools:**
 
-For reliable text input on Linux, install the appropriate tool for your display server:
+Handy needs a tool to send the paste key (or to type, with Direct). Install the appropriate one for your display server:
 
 | Display Server | Recommended Tool | Install Command                                    |
 | -------------- | ---------------- | -------------------------------------------------- |

@@ -1,6 +1,6 @@
 [package]
 name = "handy"
-version = "0.10.0"
+version = "0.10.1"
 description = "Handy"
 authors = ["cjpais"]
 edition = "2021"
@@ -87,7 +87,7 @@ libc = "0.2"
 transcribe-cpp = { version = "0.4.2", default-features = false, features = [
   "serde",
 ] }
-handy-keys = "0.3.4"
+handy-keys = "0.3.5"
 ferrous-opencc = "0.2.3"
 clap = { version = "4", features = ["derive"] }
 specta = "=2.0.0-rc.22"
@@ -119,6 +119,7 @@ webview2-com = "0.38"
 windows = { version = "0.61.3", features = [
   "System_UserProfile",
   "Win32_Media_Audio_Endpoints",
+  "Win32_Security",
   "Win32_System_Com_StructuredStorage",
   "Win32_System_DataExchange",
   "Win32_System_LibraryLoader",
@@ -191,6 +192,8 @@ objc2-core-graphics = { version = "0.3", default-features = false, features = [
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+# PRIMARY selection access for Shift+Insert paste (already in the tree via the clipboard plugin).
+arboard = { version = "3.6.1", default-features = false }
 gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
 # Renderer policy in src/webkit_renderer.rs compares the linked WebKitGTK
 # version against the release that introduced damage-based compositing.

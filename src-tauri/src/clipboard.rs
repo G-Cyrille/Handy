@@ -1,7 +1,7 @@
 use crate::input::{self, EnigoState};
 #[cfg(target_os = "linux")]
 use crate::settings::TypingTool;
-use crate::settings::{get_settings, AutoSubmitKey, ClipboardHandling, PasteMethod};
+use crate::settings::{get_settings, AppSettings, AutoSubmitKey, ClipboardHandling, PasteMethod};
 use enigo::{Direction, Enigo, Key, Keyboard};
 use log::info;
 use std::process::Command;
@@ -89,8 +89,33 @@ fn paste_via_clipboard(
         None
     };
 
+    // Shift+Insert reads PRIMARY in many terminals and the clipboard in GUI
+    // apps, so put the transcript on both. Only for Shift+Insert: Ctrl+V never
+    // reads PRIMARY, and writing it replaces the user's highlighted text.
+    #[cfg(target_os = "linux")]
+    let saved_primary = if *paste_method == PasteMethod::ShiftInsert {
+        let saved = crate::primary_selection::read();
+        match crate::primary_selection::write(text) {
+            Ok(()) => Some(saved),
+            Err(e) => {
+                log::warn!("Could not put the transcript on the primary selection: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // Write text to clipboard first
+    #[cfg(not(target_os = "linux"))]
     write_text_to_clipboard(app_handle, text)?;
+    #[cfg(target_os = "linux")]
+    if let Err(e) = write_text_to_clipboard(app_handle, text) {
+        if let Some(saved) = saved_primary {
+            crate::primary_selection::restore(saved);
+        }
+        return Err(e);
+    }
 
     std::thread::sleep(Duration::from_millis(paste_delay_ms));
 
@@ -133,6 +158,10 @@ fn paste_via_clipboard(
         } else {
             // Nothing was there to begin with — don't leave the transcription behind.
             let _ = clipboard.clear();
+        }
+        #[cfg(target_os = "linux")]
+        if let Some(saved) = saved_primary {
+            crate::primary_selection::restore(saved);
         }
     })
 }
@@ -851,11 +880,51 @@ fn should_send_auto_submit(auto_submit: bool, paste_method: PasteMethod) -> bool
     auto_submit && paste_method != PasteMethod::None
 }
 
+/// What [`paste`] did with the text.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PasteOutcome {
+    Pasted,
+    /// The focused window takes no input from Handy, so nothing arrived.
+    Blocked,
+}
+
+/// Whether `paste_method` works by sending keystrokes to the focused window.
+fn sends_keys(paste_method: PasteMethod) -> bool {
+    match paste_method {
+        PasteMethod::Direct
+        | PasteMethod::CtrlV
+        | PasteMethod::CtrlShiftV
+        | PasteMethod::ShiftInsert => true,
+        PasteMethod::None | PasteMethod::ExternalScript => false,
+    }
+}
+
 /// Pastes `text` into the focused app. Call from a worker thread, never the main
 /// thread: it sleeps between steps (input injection hops via `with_enigo`).
-pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
+pub fn paste(text: String, app_handle: AppHandle) -> Result<PasteOutcome, String> {
     let _paste = PASTE_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
     let settings = get_settings(&app_handle);
+
+    // Windows drops the keystrokes Handy sends to an elevated window and may
+    // not say so, so ask before pasting instead of trusting the result. The
+    // paste still runs as usual; only what Handy reports changes.
+    let blocked =
+        sends_keys(settings.paste_method) && crate::utils::foreground_window_is_elevated();
+    let result = paste_as_configured(text, app_handle, settings);
+    if !blocked {
+        return result.map(|()| PasteOutcome::Pasted);
+    }
+    if let Err(e) = result {
+        log::warn!("Paste into an elevated window failed: {e}");
+    }
+    Ok(PasteOutcome::Blocked)
+}
+
+fn paste_as_configured(
+    text: String,
+    app_handle: AppHandle,
+    settings: AppSettings,
+) -> Result<(), String> {
     let paste_method = settings.paste_method;
     let paste_delay_ms = settings.paste_delay_ms;
     let paste_delay_after_ms = settings.paste_delay_after_ms;
