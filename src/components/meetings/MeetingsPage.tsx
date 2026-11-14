@@ -104,7 +104,7 @@ export const MeetingsPage: React.FC = () => {
   return (
     <div className="meeting-library">
       <div className="meeting-library-head">
-        <h1>{t("meetings.title")}</h1>
+        <h1>{t("sidebar.meetings")}</h1>
         <Button variant="secondary" disabled={busy} onClick={importRecording}>
           {t(busy ? "meetings.loading" : "meetings.workspace.import")}
         </Button>
