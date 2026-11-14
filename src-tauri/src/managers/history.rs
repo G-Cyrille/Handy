@@ -1,3 +1,5 @@
+use crate::managers::transcription::Transcription;
+use crate::screenshot::CapturedScreenshot;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local, Utc};
 use log::{debug, error, info, warn};
@@ -6,7 +8,7 @@ use rusqlite_migration::{MigrationDefinitionError, Migrations, M};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 use tauri_specta::Event;
 
@@ -33,6 +35,7 @@ static MIGRATIONS: &[M] = &[
     M::up("ALTER TABLE transcription_history ADD COLUMN post_processed_text TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_prompt TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_requested BOOLEAN NOT NULL DEFAULT 0;"),
+    M::up("ALTER TABLE transcription_history ADD COLUMN screenshot_file_name TEXT;"),
 ];
 
 /// Nullable columns added outside [`MIGRATIONS`]; see
@@ -42,7 +45,7 @@ const ADDED_COLUMNS: &[&str] = &["source_name", "language", "language_source"];
 /// Every column a [`HistoryEntry`] is read from.
 const ENTRY_COLUMNS: &str = "id, file_name, timestamp, saved, title, transcription_text, \
     post_processed_text, post_process_prompt, post_process_requested, source_name, language, \
-    language_source";
+    language_source, screenshot_file_name";
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct PaginatedHistory {
@@ -81,6 +84,8 @@ pub struct HistoryEntry {
     pub language: Option<String>,
     /// How that language was chosen; `None` before it was recorded.
     pub language_source: Option<LanguageSource>,
+    /// Basename of the screenshot stored beside the recording.
+    pub screenshot_file_name: Option<String>,
 }
 
 pub struct HistoryManager {
@@ -272,39 +277,75 @@ impl HistoryManager {
                 .get::<_, Option<String>>("language_source")?
                 .as_deref()
                 .and_then(LanguageSource::parse),
+            screenshot_file_name: row.get("screenshot_file_name")?,
         })
     }
 
-    pub fn recordings_dir(&self) -> &std::path::Path {
+    pub fn recordings_dir(&self) -> &Path {
         &self.recordings_dir
     }
 
-    /// Save a new history entry to the database.
-    /// The WAV file should already have been written to the recordings directory.
+    /// Path of an entry's screenshot, or `None` when it has none. The stored
+    /// name must be a plain basename so a tampered row can't escape the
+    /// recordings directory.
+    pub fn get_screenshot_file_path(&self, entry: &HistoryEntry) -> Option<PathBuf> {
+        let file_name = entry.screenshot_file_name.as_deref()?;
+        if !is_plain_basename(file_name) {
+            error!(
+                "Ignoring screenshot name for history entry {}: not a plain file name",
+                entry.id
+            );
+            return None;
+        }
+        Some(self.recordings_dir.join(file_name))
+    }
+
+    /// Save a new history entry to the database. The WAV file must already be
+    /// in the recordings directory; the screenshot JPEG (if any) is written
+    /// here, paired with the row (see [`insert_with_screenshot`]).
     pub fn save_entry(
         &self,
         file_name: String,
-        transcription_text: String,
+        transcription: Transcription,
         post_process_requested: bool,
         post_processed_text: Option<String>,
         post_process_prompt: Option<String>,
-        language: Option<LanguageDecision>,
+        screenshot: Option<&CapturedScreenshot>,
     ) -> Result<HistoryEntry> {
-        let (language, language_source) = split_language(language);
-        let entry = self.insert_entry(HistoryEntry {
-            id: 0,
-            file_name,
-            timestamp: Utc::now().timestamp(),
-            saved: false,
-            title: String::new(),
-            transcription_text,
-            post_processed_text,
-            post_process_prompt,
-            post_process_requested,
-            source_name: None,
+        let Transcription {
+            text: transcription_text,
             language,
-            language_source,
-        })?;
+        } = transcription;
+        let (language, language_source) = split_language(language);
+        let entry = insert_with_screenshot(
+            &self.recordings_dir,
+            &file_name,
+            screenshot.map(CapturedScreenshot::jpeg),
+            |screenshot_file_name| {
+                if let (Some(capture), Some(name)) = (screenshot, &screenshot_file_name) {
+                    let path = self.recordings_dir.join(name);
+                    if let Err(err) = capture.save_monitor_images(&path) {
+                        warn!("Failed to save individual monitor images: {err}");
+                        let _ = fs::remove_file(path.with_extension("images.json"));
+                    }
+                }
+                self.insert_entry(HistoryEntry {
+                    id: 0,
+                    file_name: file_name.clone(),
+                    timestamp: Utc::now().timestamp(),
+                    saved: false,
+                    title: String::new(),
+                    transcription_text,
+                    post_processed_text,
+                    post_process_prompt,
+                    post_process_requested,
+                    source_name: None,
+                    language,
+                    language_source,
+                    screenshot_file_name,
+                })
+            },
+        )?;
 
         self.cleanup_old_entries()?;
 
@@ -328,6 +369,7 @@ impl HistoryManager {
             source_name: Some(source_name),
             language: None,
             language_source: None,
+            screenshot_file_name: None,
         })
     }
 
@@ -348,8 +390,9 @@ impl HistoryManager {
                 post_process_requested,
                 source_name,
                 language,
-                language_source
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                language_source,
+                screenshot_file_name
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 &entry.file_name,
                 entry.timestamp,
@@ -362,6 +405,7 @@ impl HistoryManager {
                 &entry.source_name,
                 &entry.language,
                 entry.language_source.map(LanguageSource::as_str),
+                &entry.screenshot_file_name,
             ],
         )?;
         entry.id = conn.last_insert_rowid();
@@ -452,7 +496,9 @@ impl HistoryManager {
         }
     }
 
-    fn delete_entries_and_files(&self, entries: &[(i64, String)]) -> Result<usize> {
+    /// Delete rows and their recording files. Returns how many entries had a
+    /// WAV file removed.
+    fn delete_entries_and_files(&self, entries: &[EntryFiles]) -> Result<usize> {
         if entries.is_empty() {
             return Ok(0);
         }
@@ -460,22 +506,19 @@ impl HistoryManager {
         let conn = self.get_connection()?;
         let mut deleted_count = 0;
 
-        for (id, file_name) in entries {
+        for entry in entries {
             // Delete database entry
             conn.execute(
                 "DELETE FROM transcription_history WHERE id = ?1",
-                params![id],
+                params![entry.id],
             )?;
 
-            // Delete WAV file
-            let file_path = self.recordings_dir.join(file_name);
-            if file_path.exists() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete WAV file {}: {}", file_name, e);
-                } else {
-                    debug!("Deleted old WAV file: {}", file_name);
-                    deleted_count += 1;
-                }
+            if remove_entry_files(
+                &self.recordings_dir,
+                &entry.file_name,
+                entry.screenshot_file_name.as_deref(),
+            ) {
+                deleted_count += 1;
             }
         }
 
@@ -488,14 +531,12 @@ impl HistoryManager {
         // Unsaved dictations, newest first. Transcribed files are only ever
         // deleted explicitly, and don't count toward the limit.
         let mut stmt = conn.prepare(
-            "SELECT id, file_name FROM transcription_history WHERE saved = 0 AND source_name IS NULL ORDER BY timestamp DESC"
+            "SELECT id, file_name, screenshot_file_name FROM transcription_history WHERE saved = 0 AND source_name IS NULL ORDER BY timestamp DESC"
         )?;
 
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, i64>("id")?, row.get::<_, String>("file_name")?))
-        })?;
+        let rows = stmt.query_map([], EntryFiles::from_row)?;
 
-        let mut entries: Vec<(i64, String)> = Vec::new();
+        let mut entries: Vec<EntryFiles> = Vec::new();
         for row in rows {
             entries.push(row?);
         }
@@ -530,14 +571,12 @@ impl HistoryManager {
         // Unsaved dictations older than the cutoff; transcribed files are only
         // ever deleted explicitly.
         let mut stmt = conn.prepare(
-            "SELECT id, file_name FROM transcription_history WHERE saved = 0 AND source_name IS NULL AND timestamp < ?1",
+            "SELECT id, file_name, screenshot_file_name FROM transcription_history WHERE saved = 0 AND source_name IS NULL AND timestamp < ?1",
         )?;
 
-        let rows = stmt.query_map(params![cutoff_timestamp], |row| {
-            Ok((row.get::<_, i64>("id")?, row.get::<_, String>("file_name")?))
-        })?;
+        let rows = stmt.query_map(params![cutoff_timestamp], EntryFiles::from_row)?;
 
-        let mut entries_to_delete: Vec<(i64, String)> = Vec::new();
+        let mut entries_to_delete: Vec<EntryFiles> = Vec::new();
         for row in rows {
             entries_to_delete.push(row?);
         }
@@ -691,16 +730,14 @@ impl HistoryManager {
     pub async fn delete_entry(&self, id: i64) -> Result<()> {
         let conn = self.get_connection()?;
 
-        // Get the entry to find the file name
+        // Delete the recording files first; database deletion continues even
+        // if a file removal fails.
         if let Some(entry) = self.get_entry_by_id(id).await? {
-            // Delete the audio file first
-            let file_path = self.get_audio_file_path(&entry.file_name);
-            if file_path.exists() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete audio file {}: {}", entry.file_name, e);
-                    // Continue with database deletion even if file deletion fails
-                }
-            }
+            remove_entry_files(
+                &self.recordings_dir,
+                &entry.file_name,
+                entry.screenshot_file_name.as_deref(),
+            );
         }
 
         // Delete from database
@@ -730,34 +767,133 @@ impl HistoryManager {
     }
 }
 
+/// The files a history row owns, as needed by the cleanup paths.
+struct EntryFiles {
+    id: i64,
+    file_name: String,
+    screenshot_file_name: Option<String>,
+}
+
+impl EntryFiles {
+    fn from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Self> {
+        Ok(Self {
+            id: row.get("id")?,
+            file_name: row.get("file_name")?,
+            screenshot_file_name: row.get("screenshot_file_name")?,
+        })
+    }
+}
+
+/// Screenshot basename derived from the WAV it was captured with.
+fn screenshot_file_name_for(wav_file_name: &str) -> String {
+    let stem = wav_file_name.strip_suffix(".wav").unwrap_or(wav_file_name);
+    format!("{stem}.jpg")
+}
+
+/// Insert a row together with its screenshot so the two only ever exist as a
+/// pair. The JPEG is written first and `insert` receives its basename; if the
+/// insert fails the JPEG is removed again, and if the JPEG cannot be written
+/// the row is inserted without one. Errors from `insert` are passed through.
+fn insert_with_screenshot<T>(
+    recordings_dir: &Path,
+    wav_file_name: &str,
+    screenshot: Option<&[u8]>,
+    insert: impl FnOnce(Option<String>) -> Result<T>,
+) -> Result<T> {
+    let screenshot_file_name = screenshot.and_then(|jpeg| {
+        let file_name = screenshot_file_name_for(wav_file_name);
+        match fs::write(recordings_dir.join(&file_name), jpeg) {
+            Ok(()) => {
+                debug!("Saved screenshot {}", file_name);
+                Some(file_name)
+            }
+            Err(err) => {
+                error!("Failed to save screenshot {}: {}", file_name, err);
+                None
+            }
+        }
+    });
+
+    let result = insert(screenshot_file_name.clone());
+    if result.is_err() {
+        if let Some(file_name) = screenshot_file_name {
+            remove_recording_file(recordings_dir, &file_name);
+            let _ = fs::remove_file(
+                recordings_dir
+                    .join(&file_name)
+                    .with_extension("images.json"),
+            );
+        }
+    }
+    result
+}
+
+fn is_plain_basename(file_name: &str) -> bool {
+    !file_name.is_empty()
+        && Path::new(file_name)
+            .file_name()
+            .is_some_and(|name| name == file_name)
+}
+
+/// Remove an entry's WAV and screenshot from the recordings directory.
+/// Returns whether the WAV was removed. A screenshot name that is not a plain
+/// basename is ignored rather than resolved outside the directory.
+fn remove_entry_files(
+    recordings_dir: &Path,
+    file_name: &str,
+    screenshot_file_name: Option<&str>,
+) -> bool {
+    let wav_removed = remove_recording_file(recordings_dir, file_name);
+    if let Some(screenshot) = screenshot_file_name.filter(|name| is_plain_basename(name)) {
+        remove_recording_file(recordings_dir, screenshot);
+        let _ = fs::remove_file(
+            recordings_dir
+                .join(screenshot)
+                .with_extension("images.json"),
+        );
+    }
+    wav_removed
+}
+
+fn remove_recording_file(recordings_dir: &Path, file_name: &str) -> bool {
+    let path = recordings_dir.join(file_name);
+    if !path.exists() {
+        return false;
+    }
+    match fs::remove_file(&path) {
+        Ok(()) => {
+            debug!("Deleted recording file: {}", file_name);
+            true
+        }
+        Err(e) => {
+            error!("Failed to delete recording file {}: {}", file_name, e);
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rusqlite::{params, Connection};
 
     fn setup_conn() -> Connection {
-        let conn = Connection::open_in_memory().expect("open in-memory db");
-        conn.execute_batch(
-            "CREATE TABLE transcription_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_name TEXT NOT NULL,
-                timestamp INTEGER NOT NULL,
-                saved BOOLEAN NOT NULL DEFAULT 0,
-                title TEXT NOT NULL,
-                transcription_text TEXT NOT NULL,
-                post_processed_text TEXT,
-                post_process_prompt TEXT,
-                post_process_requested BOOLEAN NOT NULL DEFAULT 0,
-                source_name TEXT,
-                language TEXT,
-                language_source TEXT
-            );",
-        )
-        .expect("create transcription_history table");
+        let mut conn = Connection::open_in_memory().expect("open in-memory db");
+        HistoryManager::apply_migrations(&mut conn).expect("apply migrations");
         conn
     }
 
     fn insert_entry(conn: &Connection, timestamp: i64, text: &str, post_processed: Option<&str>) {
+        insert_entry_with_screenshot(conn, timestamp, text, post_processed, None);
+    }
+
+    fn insert_entry_with_screenshot(
+        conn: &Connection,
+        timestamp: i64,
+        text: &str,
+        post_processed: Option<&str>,
+        screenshot_file_name: Option<&str>,
+    ) {
         conn.execute(
             "INSERT INTO transcription_history (
                 file_name,
@@ -767,8 +903,9 @@ mod tests {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                post_process_requested,
+                screenshot_file_name
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 format!("handy-{}.wav", timestamp),
                 timestamp,
@@ -778,6 +915,7 @@ mod tests {
                 post_processed,
                 Option::<String>::None,
                 false,
+                screenshot_file_name,
             ],
         )
         .expect("insert history entry");
@@ -786,6 +924,26 @@ mod tests {
     fn user_version(conn: &Connection) -> i32 {
         conn.pragma_query_value(None, "user_version", |row| row.get(0))
             .expect("read user_version")
+    }
+
+    #[test]
+    fn upgrading_screenshot_history_preserves_existing_entries() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        Migrations::new(MIGRATIONS.to_vec())
+            .to_latest(&mut conn)
+            .unwrap();
+        insert_entry_with_screenshot(&conn, 100, "existing", None, Some("handy-100.jpg"));
+
+        HistoryManager::apply_migrations(&mut conn).unwrap();
+
+        let entry = HistoryManager::get_latest_entry_with_conn(&conn)
+            .unwrap()
+            .unwrap();
+        assert_eq!(entry.transcription_text, "existing");
+        assert_eq!(entry.screenshot_file_name.as_deref(), Some("handy-100.jpg"));
+        assert_eq!(entry.source_name, None);
+        assert_eq!(entry.language, None);
+        assert_eq!(user_version(&conn), MIGRATIONS.len() as i32);
     }
 
     #[test]
@@ -894,5 +1052,124 @@ mod tests {
             .expect("completed entry exists");
 
         assert_eq!(entry.transcription_text, "dictated");
+    }
+
+    #[test]
+    fn migration_adds_nullable_screenshot_column() {
+        let conn = setup_conn();
+        insert_entry(&conn, 100, "no screenshot", None);
+        insert_entry_with_screenshot(&conn, 200, "with screenshot", None, Some("handy-200.jpg"));
+
+        let latest = HistoryManager::get_latest_entry_with_conn(&conn)
+            .expect("fetch latest entry")
+            .expect("entry exists");
+        assert_eq!(
+            latest.screenshot_file_name.as_deref(),
+            Some("handy-200.jpg")
+        );
+
+        let mut stmt = conn
+            .prepare(&format!(
+                "SELECT {ENTRY_COLUMNS} FROM transcription_history WHERE timestamp = 100"
+            ))
+            .unwrap();
+        let older = stmt
+            .query_row([], HistoryManager::map_history_entry)
+            .unwrap();
+        assert_eq!(older.screenshot_file_name, None);
+    }
+
+    #[test]
+    fn screenshot_name_follows_the_wav_stem() {
+        assert_eq!(screenshot_file_name_for("handy-123.wav"), "handy-123.jpg");
+    }
+
+    #[test]
+    fn only_plain_basenames_are_accepted_for_screenshots() {
+        assert!(is_plain_basename("handy-123.jpg"));
+        assert!(!is_plain_basename(""));
+        assert!(!is_plain_basename("../handy-123.jpg"));
+        assert!(!is_plain_basename("/etc/passwd"));
+        assert!(!is_plain_basename("sub/handy-123.jpg"));
+    }
+
+    #[test]
+    fn insert_failure_removes_the_screenshot_it_wrote() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let result: Result<()> = insert_with_screenshot(
+            dir.path(),
+            "handy-1.wav",
+            Some(b"jpg"),
+            |screenshot_file_name| {
+                assert_eq!(screenshot_file_name.as_deref(), Some("handy-1.jpg"));
+                assert!(dir.path().join("handy-1.jpg").exists());
+                fs::write(dir.path().join("handy-1.images.json"), b"[]").unwrap();
+                Err(anyhow!("insert failed"))
+            },
+        );
+
+        assert!(result.is_err());
+        assert!(!dir.path().join("handy-1.jpg").exists());
+        assert!(!dir.path().join("handy-1.images.json").exists());
+    }
+
+    #[test]
+    fn insert_success_keeps_the_screenshot() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let stored = insert_with_screenshot(dir.path(), "handy-1.wav", Some(b"jpg"), Ok).unwrap();
+
+        assert_eq!(stored.as_deref(), Some("handy-1.jpg"));
+        assert_eq!(fs::read(dir.path().join("handy-1.jpg")).unwrap(), b"jpg");
+    }
+
+    #[test]
+    fn unwritable_screenshot_inserts_the_row_without_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("missing");
+
+        let stored = insert_with_screenshot(&missing, "handy-1.wav", Some(b"jpg"), Ok).unwrap();
+
+        assert_eq!(stored, None);
+    }
+
+    #[test]
+    fn removing_entry_files_deletes_wav_and_screenshot_together() {
+        let dir = tempfile::tempdir().unwrap();
+        let wav = dir.path().join("handy-1.wav");
+        let jpg = dir.path().join("handy-1.jpg");
+        fs::write(&wav, b"wav").unwrap();
+        fs::write(&jpg, b"jpg").unwrap();
+        let sidecar = jpg.with_extension("images.json");
+        fs::write(&sidecar, b"[]").unwrap();
+
+        assert!(remove_entry_files(
+            dir.path(),
+            "handy-1.wav",
+            Some("handy-1.jpg")
+        ));
+
+        assert!(!wav.exists());
+        assert!(!jpg.exists());
+        assert!(!sidecar.exists());
+    }
+
+    #[test]
+    fn removing_entry_files_ignores_screenshot_paths_outside_the_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = dir.path().join("outside.jpg");
+        let recordings = dir.path().join("recordings");
+        fs::create_dir(&recordings).unwrap();
+        fs::write(recordings.join("handy-1.wav"), b"wav").unwrap();
+        fs::write(&outside, b"jpg").unwrap();
+
+        assert!(remove_entry_files(
+            &recordings,
+            "handy-1.wav",
+            Some("../outside.jpg")
+        ));
+
+        assert!(outside.exists());
     }
 }

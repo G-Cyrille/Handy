@@ -32,6 +32,26 @@ pub fn handle_shortcut_event(
     hotkey_string: &str,
     is_pressed: bool,
 ) {
+    if binding_id == "meeting" {
+        static EDGE: std::sync::Mutex<crate::meetings::MeetingShortcut> =
+            std::sync::Mutex::new(crate::meetings::MeetingShortcut::new());
+        let trigger = EDGE
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .edge(is_pressed);
+        if trigger {
+            let app = app.clone();
+            std::thread::spawn(move || {
+                if let Some(manager) = app.try_state::<Arc<crate::meetings::MeetingManager>>() {
+                    if let Err(error) = manager.toggle(&app) {
+                        use tauri::Emitter;
+                        let _ = app.emit("meeting-error", error);
+                    }
+                }
+            });
+        }
+        return;
+    }
     let settings = get_settings(app);
 
     // Transcribe bindings are handled by the coordinator.

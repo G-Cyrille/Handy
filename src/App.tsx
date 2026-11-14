@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { platform } from "@tauri-apps/plugin-os";
+import { listen } from "@tauri-apps/api/event";
 import {
   checkAccessibilityPermission,
   checkMicrophonePermission,
@@ -149,6 +150,15 @@ function App() {
     };
   }, [settings?.debug_mode, updateSetting]);
 
+  // The meeting shortcut asks the main window to show the Meetings section.
+  useEffect(() => {
+    const unlisten = listen("meeting-open", () => {
+      setCurrentSection("meetings");
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
   const revealMainWindowForPermissions = async () => {
     try {
       await commands.showMainWindowCommand();

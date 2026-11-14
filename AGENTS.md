@@ -70,6 +70,7 @@ Handy is a cross-platform desktop speech-to-text application built with Tauri 2.
 - `settings.rs` - Application settings management
 - `notices.rs` - Reports background errors to the user (see [Error notices](#error-notices))
 - `overlay.rs` - Recording overlay window (platform-specific)
+- `screenshot.rs` - Optional screenshot context for AI post-processing (macOS capture, portable resize/encode)
 - `signal_handle.rs` - `send_transcription_input()` reusable function
 - `utils.rs` - Platform detection helpers
 
@@ -244,3 +245,21 @@ See the [Troubleshooting](README.md#troubleshooting) section in README.md.
 - **Full contributor workflow:** [CONTRIBUTING.md](CONTRIBUTING.md).
 
 **Commits:** Use conventional commit prefixes (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Focus the message on _why_, not _what_.
+
+## Fork integration workflow
+
+- `origin` is Cyrille's GitHub fork, `https://github.com/G-Cyrille/Handy.git`.
+  It is the only writable remote. `upstream` is the original project,
+  `https://github.com/cjpais/handy.git`; keep its push URL disabled.
+- `main` mirrors upstream with fast-forwards only. `personal/main` is the
+  canonical combined fork. Keep independent features on focused branches
+  created from an up-to-date `main`; integrate on a separate `chore/*` branch.
+- Before updating the fork, integrating a feature, publishing local work, or
+  preparing an install, read [docs/fork-workflow.md](docs/fork-workflow.md).
+  It defines the fetch, merge, validation, push and verification procedure.
+- A request to update Handy, refresh upstream, or synchronize the fork includes
+  committing the validated integration and pushing `main`, `personal/main`
+  and the integration branch to `origin`, unless Cyrille explicitly asks for
+  local-only work. A local commit alone does not complete that request.
+- Installing or relaunching the daily-driver app is a separate action requiring
+  an explicit request. Git synchronization alone leaves the installed app alone.

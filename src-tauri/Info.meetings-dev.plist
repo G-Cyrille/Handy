@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Handy Meetings Dev records the selected microphone for local meeting transcription.</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Handy Meetings Dev connects to your configured local AI provider for meeting suggestions.</string>
+</dict>
+</plist>

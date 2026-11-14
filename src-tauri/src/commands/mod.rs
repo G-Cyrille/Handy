@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod history;
+pub mod meetings;
 pub mod models;
 pub mod transcription;
 
@@ -45,8 +46,8 @@ pub fn get_app_settings(app: AppHandle) -> Result<AppSettings, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_default_settings() -> Result<AppSettings, String> {
-    Ok(crate::settings::get_default_settings())
+pub fn get_default_settings(app: AppHandle) -> Result<AppSettings, String> {
+    Ok(crate::test_build::default_settings(&app))
 }
 
 #[tauri::command]

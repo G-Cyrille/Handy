@@ -1,5 +1,9 @@
 # Handy
 
+This is [Cyrille's fork](https://github.com/G-Cyrille/Handy). `main` mirrors the
+original project; `personal/main` contains the combined fork features. See the
+[fork update and publication workflow](docs/fork-workflow.md).
+
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/WVBeWsNXK4)
 
 **A free, open source, and extensible speech-to-text application that works completely offline.**
@@ -81,6 +85,13 @@ For detailed build instructions including platform-specific requirements, see [B
 Control Handy from [Raycast](https://www.raycast.com) — start/stop recording, browse transcript history, manage dictionary, switch models and languages.
 
 [Source](https://github.com/mattiacolombomc/raycast-handy) · by [@mattiacolombomc](https://github.com/mattiacolombomc)
+
+### Voxtral quantization
+
+In **Settings → Models**, Voxtral Mini 4B Realtime offers the default Q5_K_M
+and a smaller **Voxtral Mini 4B Realtime (Q4_K_M)** download. Download either
+version, then select it to transcribe. Both can remain installed; deleting one
+preserves the other. Q4_K_M uses a 2.83 GB model file instead of 3.28 GB for Q5_K_M.
 
 ### Debug Mode
 

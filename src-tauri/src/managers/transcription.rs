@@ -6,7 +6,7 @@ use crate::audio_toolkit::{
 use crate::chinese_script::{chinese_variety_for_text, convert_chinese_script};
 use crate::engine_supervisor::{
     CancelMark, DeviceInfo, DeviceSelector, EngineError, EngineSupervisor, LoadSpec, LoadedInfo,
-    Unloading,
+    StreamProgress, Unloading,
 };
 use crate::language_detection::speech::speech_head;
 use crate::language_detection::{
@@ -33,7 +33,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_specta::Event;
-use transcribe_cpp::{Backend, RunOptions, Task, Transcript};
+use transcribe_cpp::{Backend, RunOptions, StreamOptions, Task, Transcript};
 
 mod chunked;
 mod job;
@@ -135,7 +135,7 @@ pub struct StreamRouter {
 
 /// One streaming worker's command channel.
 struct Route {
-    tx: mpsc::Sender<StreamCmd>,
+    tx: mpsc::SyncSender<StreamCmd>,
     /// Set by `cancel_stream`, so the worker drops audio still queued ahead
     /// of the `Cancel` instead of decoding it.
     cancelled: Arc<AtomicBool>,
@@ -153,7 +153,7 @@ impl StreamRouter {
     /// receiver the worker should drain and its cancel flag. Caller must
     /// ensure no prior channel is still open.
     fn open(&self) -> (mpsc::Receiver<StreamCmd>, Arc<AtomicBool>) {
-        let (tx, rx) = mpsc::channel::<StreamCmd>();
+        let (tx, rx) = mpsc::sync_channel::<StreamCmd>(256);
         let cancelled = Arc::new(AtomicBool::new(false));
         *self.route.lock().unwrap() = Some(Route {
             tx,
@@ -183,8 +183,14 @@ impl StreamRouter {
         if !self.open.load(Ordering::Relaxed) {
             return;
         }
-        if let Some(route) = self.route.lock().unwrap().as_ref() {
-            let _ = route.tx.send(StreamCmd::Feed(frame.to_vec()));
+        let mut active = self.route.lock().unwrap();
+        if let Some(route) = active.as_ref() {
+            if frame.len() > 16_000 || route.tx.try_send(StreamCmd::Feed(frame.to_vec())).is_err() {
+                route.cancelled.store(true, Ordering::Release);
+                self.open.store(false, Ordering::Relaxed);
+                *active = None;
+                warn!("Live ASR queue exhausted; using complete dictation audio at stop");
+            }
         }
     }
 
@@ -246,6 +252,7 @@ pub struct TranscriptionManager {
     /// The transcribe-cpp engine: owns the worker process, its model, and
     /// recovery from crashes and hangs.
     engine: EngineSupervisor,
+    scheduler: Arc<crate::asr_scheduler::AsrScheduler>,
     model_manager: Arc<ModelManager>,
     app_handle: AppHandle,
     current_model_id: Arc<Mutex<Option<String>>>,
@@ -284,6 +291,7 @@ impl TranscriptionManager {
     pub fn new(app_handle: &AppHandle, model_manager: Arc<ModelManager>) -> Result<Self> {
         let manager = Self {
             engine: EngineSupervisor::new(!transcribe_gpu_disabled_for_host()),
+            scheduler: Arc::new(crate::asr_scheduler::AsrScheduler::default()),
             model_manager,
             app_handle: app_handle.clone(),
             current_model_id: Arc::new(Mutex::new(None)),
@@ -331,7 +339,10 @@ impl TranscriptionManager {
                     let is_recording = app_handle_cloned
                         .try_state::<Arc<AudioRecordingManager>>()
                         .is_some_and(|a| a.is_recording());
-                    if is_recording || manager_cloned.job_active() {
+                    if is_recording
+                        || manager_cloned.job_active()
+                        || manager_cloned.scheduler.busy()
+                    {
                         manager_cloned.touch_activity();
                         continue;
                     }
@@ -508,7 +519,13 @@ impl TranscriptionManager {
             return;
         }
         let settings = get_settings(&self.app_handle);
+        let meeting_active = self
+            .app_handle
+            .try_state::<Arc<crate::meetings::MeetingManager>>()
+            .is_some_and(|manager| manager.is_active());
         if settings.model_unload_timeout == ModelUnloadTimeout::Immediately
+            && !self.scheduler.busy()
+            && !meeting_active
             && self.is_model_loaded()
         {
             info!("Immediately unloading model after {}", context);
@@ -845,6 +862,7 @@ impl TranscriptionManager {
         cancelled: Arc<AtomicBool>,
         worker_id: u64,
     ) {
+        let _lease = self.scheduler.dictation();
         let _worker = StreamWorkerGuard {
             worker_id,
             active_stream_worker: Arc::clone(&self.active_stream_worker),
@@ -953,7 +971,7 @@ impl TranscriptionManager {
     pub fn cancel_stream(&self) {
         if let Some(route) = self.router.take() {
             route.cancelled.store(true, Ordering::Release);
-            let _ = route.tx.send(StreamCmd::Cancel);
+            let _ = route.tx.try_send(StreamCmd::Cancel);
         }
         self.stream_active.store(false, Ordering::Release);
     }
@@ -963,7 +981,68 @@ impl TranscriptionManager {
     /// it is stopped; the model stays loaded and the next use starts a fresh
     /// worker for it.
     pub fn cancel_transcription(&self) {
-        self.engine.cancel();
+        self.scheduler.cancel_dictation(|| self.engine.cancel());
+    }
+
+    pub fn reserve_dictation(&self) {
+        self.scheduler.reserve_dictation();
+    }
+
+    pub fn finish_dictation(&self) {
+        self.scheduler.finish_dictation();
+    }
+
+    /// Raw meeting ASR deliberately bypasses dictation rewriting and paste.
+    /// None means dictation owns the engine; the segment remains on disk.
+    pub fn transcribe_meeting(
+        &self,
+        audio: Vec<f32>,
+        on_progress: impl FnMut(StreamProgress) + Send + 'static,
+    ) -> Result<Option<String>> {
+        let Some(_lease) = self.scheduler.try_background() else {
+            return Ok(None);
+        };
+        self.touch_activity();
+        let selected = get_settings(&self.app_handle).selected_model;
+        if !self.is_model_loaded() {
+            self.load_model(&selected)?;
+        }
+        let run = RunOptions {
+            language: Some("fr".into()),
+            ..Default::default()
+        };
+        if self
+            .engine
+            .loaded()
+            .is_some_and(|info| info.capabilities.supports_streaming)
+        {
+            let stream =
+                match self
+                    .engine
+                    .start_stream(run.clone(), StreamOptions::default(), on_progress)
+                {
+                    Ok(stream) => stream,
+                    Err(EngineError::Cancelled) => return Ok(None),
+                    Err(error) => return Err(error.into()),
+                };
+            for frame in audio.chunks(1_600) {
+                stream.feed(frame.to_vec());
+            }
+            return match stream.finalize(false) {
+                Ok(Some(finalized)) => Ok(Some(format!(
+                    "{}{}",
+                    finalized.text.committed, finalized.text.tentative
+                ))),
+                Ok(None) => Err(anyhow::anyhow!("Meeting ASR stream ended without a result")),
+                Err(EngineError::Cancelled) => Ok(None),
+                Err(error) => Err(error.into()),
+            };
+        }
+        match self.engine.transcribe(audio, run) {
+            Ok(transcript) => Ok(Some(transcript.text)),
+            Err(EngineError::Cancelled) => Ok(None),
+            Err(error) => Err(error.into()),
+        }
     }
 
     /// Emit a working-phase event to the streaming overlay (spinner + label).
@@ -1015,6 +1094,7 @@ impl TranscriptionManager {
             });
         }
 
+        let lease = self.scheduler.dictation();
         let outcome = match live {
             Some(outcome) => outcome,
             None => self.decode_batch(audio)?,
@@ -1050,6 +1130,7 @@ impl TranscriptionManager {
             );
         }
 
+        drop(lease);
         self.maybe_unload_immediately("transcription");
 
         Ok(Transcription {

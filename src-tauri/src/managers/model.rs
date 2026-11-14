@@ -140,7 +140,7 @@ pub struct DiskStatus {
 
 /// The spec of a bundled catalog model: everything in `catalog.json` normalised
 /// into one shape, rendered into the frontend-facing [`ModelInfo`] via
-/// [`ModelDescriptor::to_model_info`] by combining it with a [`DiskStatus`].
+/// [`ModelDescriptor::to_model_info_for_file`] by combining it with a [`DiskStatus`].
 /// (The catalog is the only producer that routes through this; the legacy table
 /// and on-disk scans build `ModelInfo` directly.)
 #[derive(Debug, Clone)]
@@ -152,6 +152,8 @@ pub struct ModelDescriptor {
     pub caps: CapabilityProbe,
     pub files: Vec<QuantFile>,
     pub default_quant: Option<String>,
+    /// Extra quantizations offered for download alongside the default.
+    pub additional_quants: Vec<String>,
     pub speed_score: f32,
     pub accuracy_score: f32,
     /// Editorial sort priority across the whole catalog (lower = higher). Drives
@@ -170,19 +172,21 @@ impl ModelDescriptor {
         default_quant_file(&self.files, self.default_quant.as_deref())
     }
 
-    /// Render the frontend-facing [`ModelInfo`] by combining this spec with live
-    /// disk `status`.
-    pub fn to_model_info(&self, status: &DiskStatus) -> ModelInfo {
-        self.render_model_info(self.default_file(), status)
+    /// Curated downloadable files, including the default exactly once.
+    pub(crate) fn downloadable_files(&self) -> impl Iterator<Item = &QuantFile> {
+        self.files.iter().filter(|file| {
+            self.default_file()
+                .is_some_and(|default| default.filename == file.filename)
+                || self.additional_quants.contains(&file.quant)
+        })
     }
 
-    /// [`ModelInfo`] for one specific quant `file` of this catalog model — how
-    /// alternate-quant files found on disk surface with full catalog metadata
-    /// instead of as anonymous customs. The default quant keeps the plain
+    /// [`ModelInfo`] for one quant, whether offered for download or discovered
+    /// on disk, with full catalog metadata. The default quant keeps the plain
     /// catalog name; any other quant appends it ("Name (Q4_K_M)") so two
     /// quants of one model stay tellable apart, and only the default carries
     /// the Recommended badge. Identity stays `"{repo_id}/{filename}"`, so the
-    /// default quant renders identically to the seeded entry.
+    /// seeded and discovered entries share the same identity.
     pub fn to_model_info_for_file(&self, file: &QuantFile, status: &DiskStatus) -> ModelInfo {
         self.render_model_info(Some(file), status)
     }
@@ -1125,9 +1129,12 @@ impl ModelManager {
         use std::collections::hash_map::Entry;
         let mut added = 0usize;
         for desc in crate::catalog::CATALOG.iter() {
-            if let Entry::Vacant(slot) = available_models.entry(desc.id.clone()) {
-                slot.insert(desc.to_model_info(&DiskStatus::default()));
-                added += 1;
+            for file in desc.downloadable_files() {
+                let model = desc.to_model_info_for_file(file, &DiskStatus::default());
+                if let Entry::Vacant(slot) = available_models.entry(model.id.clone()) {
+                    slot.insert(model);
+                    added += 1;
+                }
             }
         }
         info!("Seeded {} catalog model(s) into the registry", added);
@@ -1324,15 +1331,13 @@ impl ModelManager {
                 // A models-dir copy counts too: mirror-fallback downloads land
                 // there, and it makes manual drop-ins of catalog files work.
                 let local_path = self.models_dir.join(&model.filename);
-                let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
+                let partial_path = self.models_dir.join(format!("{}.partial", model.filename));
                 model.is_downloaded = hf_cached_path(repo_id, revision, &model.filename).is_some()
                     || local_path.exists();
                 model.is_downloading = false;
                 model.partial_size = partial_path.metadata().map(|m| m.len()).unwrap_or(0);
-                // Alternate-quant entries exist only because their file was
-                // discovered on disk — the catalog offers just the default
-                // quant, so they are never presented for download. When the
-                // file is gone, the entry goes with it.
+                // Discovery-only entries disappear with their files. Curated
+                // downloads remain available even when not installed.
                 if !model.is_downloaded
                     && !downloading_ids.contains(&model.id)
                     && Self::disappears_when_missing(model)
@@ -1342,7 +1347,7 @@ impl ModelManager {
                 continue;
             }
             let model_path = self.models_dir.join(&model.filename);
-            let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
+            let partial_path = self.models_dir.join(format!("{}.partial", model.filename));
 
             model.is_downloaded = model_path.exists();
             model.is_downloading = false;
@@ -1372,22 +1377,19 @@ impl ModelManager {
         Ok(())
     }
 
-    /// Whether `filename` is a catalog-listed quant of `repo_id` other than
-    /// the default — the only quant the catalog seeds and offers for download.
-    fn is_catalog_alternate_quant(repo_id: &str, filename: &str) -> bool {
-        crate::catalog::file_in_catalog(filename, Some(repo_id)).is_some_and(|(desc, file)| {
-            desc.default_file()
-                .is_some_and(|d| d.filename != file.filename)
-        })
-    }
-
     /// Entries discovered exclusively from disk should disappear with their
-    /// files. Catalog defaults remain so the UI can offer them for download.
+    /// files. Curated downloads remain so the UI can offer them again.
     fn disappears_when_missing(model: &ModelInfo) -> bool {
         model.is_custom
             || match &model.source {
                 ModelSource::HuggingFace { repo_id, .. } => {
-                    Self::is_catalog_alternate_quant(repo_id, &model.filename)
+                    crate::catalog::file_in_catalog(&model.filename, Some(repo_id)).is_some_and(
+                        |(desc, file)| {
+                            !desc
+                                .downloadable_files()
+                                .any(|f| f.filename == file.filename)
+                        },
+                    )
                 }
                 _ => false,
             }
@@ -2284,7 +2286,7 @@ impl ModelManager {
         let model_path = self.models_dir.join(&model_info.filename);
         let partial_path = self
             .models_dir
-            .join(format!("{}.partial", &model_info.filename));
+            .join(format!("{}.partial", model_info.filename));
 
         // Don't download if complete version already exists
         if model_path.exists() {
@@ -2396,7 +2398,7 @@ impl ModelManager {
             for path in [
                 self.models_dir.join(&model_info.filename),
                 self.models_dir
-                    .join(format!("{}.partial", &model_info.filename)),
+                    .join(format!("{}.partial", model_info.filename)),
             ] {
                 if path.exists() {
                     info!("Deleting model file at: {:?}", path);
@@ -2413,8 +2415,8 @@ impl ModelManager {
                     model_id
                 );
             }
-            // Alternate quants exist only while their files are on disk.
-            if Self::is_catalog_alternate_quant(repo_id, &model_info.filename) {
+            // Curated downloads stay available for re-download.
+            if Self::disappears_when_missing(&model_info) {
                 self.available_models.lock().unwrap().remove(model_id);
             }
             self.update_download_status()?;
@@ -2425,7 +2427,7 @@ impl ModelManager {
         let model_path = self.models_dir.join(&model_info.filename);
         let partial_path = self
             .models_dir
-            .join(format!("{}.partial", &model_info.filename));
+            .join(format!("{}.partial", model_info.filename));
         debug!("ModelManager: Model path: {:?}", model_path);
         debug!("ModelManager: Partial path: {:?}", partial_path);
 
@@ -2536,7 +2538,7 @@ impl ModelManager {
             if local_path.exists() {
                 let partial_path = self
                     .models_dir
-                    .join(format!("{}.partial", &model_info.filename));
+                    .join(format!("{}.partial", model_info.filename));
                 if partial_path.exists() {
                     let _ = fs::remove_file(&partial_path);
                 }
@@ -2552,7 +2554,7 @@ impl ModelManager {
         let model_path = self.models_dir.join(&model_info.filename);
         let partial_path = self
             .models_dir
-            .join(format!("{}.partial", &model_info.filename));
+            .join(format!("{}.partial", model_info.filename));
 
         if !model_path.exists() {
             self.mark_model_unavailable(model_id);
@@ -3185,6 +3187,7 @@ mod tests {
                 },
             ],
             default_quant: Some("Q8_0".to_string()),
+            additional_quants: Vec::new(),
             speed_score: 0.5,
             accuracy_score: 0.5,
             recommended_rank: None,
@@ -3193,7 +3196,7 @@ mod tests {
         let status = DiskStatus::default();
 
         // Default quant: plain name, badge intact.
-        let default_info = desc.to_model_info(&status);
+        let default_info = desc.to_model_info_for_file(&desc.files[1], &status);
         assert_eq!(default_info.name, "Model");
         assert!(default_info.is_recommended);
 
@@ -3222,13 +3225,74 @@ mod tests {
             &selection_models,
             &default_info.id
         ));
+    }
 
-        // The default rendered through the per-file path matches to_model_info,
-        // so seeded entries and discovered defaults can never diverge.
-        let same = desc.to_model_info_for_file(&desc.files[1], &status);
-        assert_eq!(same.id, default_info.id);
-        assert_eq!(same.name, default_info.name);
-        assert_eq!(same.is_recommended, default_info.is_recommended);
+    #[test]
+    fn test_voxtral_q4_is_downloadable_without_a_local_file() {
+        let mut models = HashMap::new();
+        ModelManager::seed_catalog_models(&mut models);
+        let repo = "handy-computer/Voxtral-Mini-4B-Realtime-2602-gguf";
+        let id = |quant: &str| format!("{repo}/Voxtral-Mini-4B-Realtime-2602-{quant}.gguf");
+
+        let q4 = models.get(&id("Q4_K_M")).unwrap();
+        let desc = catalog_model(repo);
+        let default_file = desc.default_file().unwrap();
+        let default_info = models
+            .get(&format!("{repo}/{}", default_file.filename))
+            .unwrap();
+        assert_eq!(q4.name, "Voxtral Mini 4B Realtime (Q4_K_M)");
+        assert_eq!(default_info.name, "Voxtral Mini 4B Realtime");
+        assert!(!q4.is_downloaded);
+        assert!(!default_info.is_downloaded);
+        assert!(!ModelManager::disappears_when_missing(q4));
+        assert!(!ModelManager::disappears_when_missing(default_info));
+        assert!(q4.supports_streaming);
+        assert!(q4.supported_languages.iter().any(|lang| lang == "fr"));
+        assert_eq!(
+            crate::catalog::rank_of(&q4.id),
+            crate::catalog::rank_of(&default_info.id)
+        );
+        assert!(!crate::catalog::mirror_fallbacks(&q4.id).is_empty());
+        assert!(!models.contains_key(&id("Q6_K")));
+
+        let (desc, file) =
+            crate::catalog::file_in_catalog("Voxtral-Mini-4B-Realtime-2602-Q6_K.gguf", Some(repo))
+                .unwrap();
+        assert!(ModelManager::disappears_when_missing(
+            &desc.to_model_info_for_file(file, &DiskStatus::default())
+        ));
+    }
+
+    #[test]
+    fn test_delete_cached_quant_preserves_other_quants() {
+        for deleted_quant in ["Q4_K_M", "Q5_K_M"] {
+            let tmp = TempDir::new().unwrap();
+            let repo = "handy-computer/Voxtral-Mini-4B-Realtime-2602-gguf";
+            let filenames = [
+                "Voxtral-Mini-4B-Realtime-2602-Q4_K_M.gguf",
+                "Voxtral-Mini-4B-Realtime-2602-Q5_K_M.gguf",
+            ];
+            let paths: Vec<_> = filenames
+                .iter()
+                .map(|filename| add_cached_model(tmp.path(), repo, "revision", filename))
+                .collect();
+            let caches = [Cache::new(tmp.path().to_path_buf())];
+            let deleted_index = usize::from(deleted_quant == "Q5_K_M");
+
+            assert!(ModelManager::delete_hf_cache_file_in(
+                &caches,
+                repo,
+                "revision",
+                filenames[deleted_index],
+            )
+            .unwrap());
+            assert!(!paths[deleted_index].exists());
+            assert!(paths[1 - deleted_index].exists());
+            assert!(
+                hf_cached_path_in(&caches, repo, "revision", filenames[1 - deleted_index])
+                    .is_some()
+            );
+        }
     }
 
     #[test]
